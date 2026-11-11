@@ -109,7 +109,7 @@ else:
     shortage_flags = critical["shortage_active"].tolist()
 
     def highlight_shortage(row):
-        color = "#FFCCCC" if shortage_flags[row.name] == 1 else ""
+        color = "#90330B" if shortage_flags[row.name] == 1 else ""
         return [f"background-color: {color}" if color else "" for _ in row]
 
     styled = display_df.style.apply(highlight_shortage, axis=1)

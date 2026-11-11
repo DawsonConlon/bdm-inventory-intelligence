@@ -48,7 +48,8 @@ Files currently in the repo:
 - `requirements.txt` — Python dependencies
 - `.gitignore` — excludes `data/bdm.db`, `.DS_Store`, `__pycache__`
 - `data/seed.py` — database seed script (complete and working)
-- `app.py` — Streamlit UI (Piece 3 — complete and working)
+- `app.py` — Streamlit UI (Piece 3 — complete, iteration 1 committed)
+- `.streamlit/config.toml` — global theme: dark grey background, near-white text, burnt orange shortage highlights
 - `.claude/launch.json` — browser preview config for Claude Code desktop app
 
 ---
@@ -259,8 +260,9 @@ On first run, `app.py` auto-seeds the database if `data/bdm.db` is missing.
 **Verified in browser (unfiltered):**
 - 6 critical rows, sorted by days_of_supply ascending (4.0 → 5.0 → 5.0 → 6.0 → 7.0 → 7.0)
 - Tiles: Critical Items 6 | Shortage Flags 2 | Sites Affected 4 | Provinces Affected 4
-- Acetylcholine Chloride rows show "[Tier 3]" badge and pink (#FFCCCC) highlight
+- Acetylcholine Chloride rows show "[Tier 3]" badge and burnt orange (#90330B) highlight (Dawson's choice)
 - Geography sidebar filters cascade correctly
+- Theme: dark modern grey (#1E1E2E background, #E8E8F0 text)
 
 ## Open Items for Next Session
 

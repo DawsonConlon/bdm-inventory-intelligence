@@ -181,9 +181,13 @@ Seed script is working. `streamlit run app.py` will auto-call `data/seed.py` on 
 - Auto-seed on startup: `app.py` checks for `data/bdm.db` and calls `data.seed.seed()` if missing; one-command run requirement fully satisfied
 - 4 summary metric tiles: Critical Items / Shortage Flags / Sites Affected / Provinces Affected
 - Cascading geography sidebar filters: Region → Province → City → Site (each narrows the next)
-- Alert table with `pandas.Styler` row coloring: shortage rows highlighted `#FFCCCC`, non-shortage rows white
+- Alert table with `pandas.Styler` row coloring: shortage rows highlighted, non-shortage rows white
 - Drug shortage tier badge: "[Tier 3]" appended to drug name in table when `shortage_active == 1`
 - Created `.claude/launch.json` for browser preview via `python3 -m streamlit run app.py`
+
+#### UI Iteration 1 — Styling Pass
+- Added `.streamlit/config.toml`: dark modern grey theme (`backgroundColor: #1E1E2E`, `secondaryBackgroundColor: #2A2A3E`, `textColor: #E8E8F0`, `primaryColor: #7C83FD`)
+- Shortage row highlight updated: `#FFCCCC` (pink) → `#FFD4A3` (pastel orange) → `#90330B` (deep burnt orange, final — Dawson's choice)
 
 #### Piece 3 Complete — Verified in browser
 Unfiltered view confirmed:
