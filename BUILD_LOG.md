@@ -163,6 +163,23 @@ Four relational tables:
 - Tech stack: Python + Streamlit confirmed
 - Repo structure defined
 
+#### Accomplishments (continued — same session)
+- Wrote `data/seed.py` — idempotent seed script creating all 4 tables, 25 approved inventory rows, 10 drug alternatives, and the `v_inventory_dashboard` view
+- Wrote `requirements.txt`
+- Created `.gitignore` (excludes `data/bdm.db`, `.DS_Store`, `__pycache__`)
+- Confirmed database seeds cleanly: `python3 data/seed.py` runs in one step, all 25 rows and all 10 alternatives verified
+- Health Canada DPD API investigated — returns empty responses for all queries (DIN lookups and ingredient searches). Alternatives DINs sourced manually instead. Issue noted in code.
+- Drug alternatives data: 10 real Canadian DINs hardcoded with sourcing date 2026-11-11
+
+#### Piece 2 Complete
+Seed script is working. `streamlit run app.py` will auto-call `data/seed.py` on first run if `data/bdm.db` is missing. No code exists for `app.py` yet.
+
+#### Drug Alternatives — Notable Flags
+- **Carbachol** (D1 alt): DIN 00042544. Simulated Tier 2 shortage, availability = Limited. Makes the MIOCHOL-E situation actionable — the primary drug is Tier 3 shortage AND its first alternative is also compromised.
+- **Pilocarpine** (D1 alt): DIN 02213044. Availability = Uncertain (may be discontinued in DPD).
+- **Insulin Detemir** (D4 alt): DIN 02271842. Availability = Limited (anticipated discontinuation Dec 2025).
+- All other alternatives: Available, no shortage.
+
 #### Decisions Made (continued)
 - **Database service: SQLite** — chosen over PostgreSQL to satisfy the one-command run requirement. PostgreSQL would require a running server before `streamlit run app.py` could work, making setup harder for the reviewer. SQLite is a single file; the seed script creates and populates it on first run, so the entire stack boots in one command. GUI query tool: DBeaver (free, supports SQLite natively, full workbench experience).
 - **One-command run confirmed:** `app.py` will auto-call the seed script on startup if the database file does not exist. Reviewer clones and runs `streamlit run app.py` — nothing else required.
@@ -176,7 +193,8 @@ Four relational tables:
 - ~~Avg daily usage baselines~~ — researched and documented. See Avg Daily Usage Baselines section.
 - ~~Full 25-row inventory data~~ — approved. See Approved Inventory Snapshot Data section.
 - **drug_alternatives table data** — real alternatives per ATC class not yet researched. To be fetched via Health Canada DPD API during seed script development. Fallback: hardcode after Dawson approval.
-- **Seed script not yet written** — next phase.
+- ~~Seed script~~ — complete. See above.
+- **`app.py` not yet written** — next phase (Piece 3).
 
 ---
 

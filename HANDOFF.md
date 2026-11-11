@@ -42,9 +42,15 @@ GitHub: https://github.com/DawsonConlon/bdm-inventory-intelligence (private, mai
 Local working directory: `/Users/dawsonconlon/coding/claude_code/bdm/`
 
 Files currently in the repo:
-- `BUILD_LOG.md` — daily progress log (includes all approved data tables and usage baselines)
+- `BUILD_LOG.md` — daily progress log (includes all approved data tables, usage baselines, and seed script notes)
 - `BIBLIOGRAPHY.md` — APA-formatted data source citations
 - `HANDOFF.md` — this file
+- `requirements.txt` — Python dependencies
+- `.gitignore` — excludes `data/bdm.db`, `.DS_Store`, `__pycache__`
+- `data/seed.py` — database seed script (complete and working)
+
+**Not yet in the repo (next to build):**
+- `app.py` — Streamlit UI (Piece 3)
 
 ---
 
@@ -160,9 +166,22 @@ Alert levels: `critical` (≤7 days), `concern` (8–14 days), `none` (>14 days)
 
 ### Table 4: `drug_alternatives`
 
-Therapeutic substitutes for each drug. DINs and ATC class data from Health Canada DPD. Shortage status manually sourced. Stock simulated. **Data not yet populated — to be fetched via Health Canada DPD API during seed script development. If the API causes unresolvable issues, escalate to Dawson before hardcoding.**
+10 rows (2 per primary drug). DINs sourced manually on 2026-11-11 — the DPD REST API was returning empty responses at time of seeding. Shortage status simulated. Stock simulated.
 
 Key columns: `alt_id`, `primary_drug_id` (FK → drugs), `alt_generic_name`, `alt_din`, `alt_atc_code`, `alt_shortage_active`, `alt_shortage_tier`, `alt_qty_on_hand_all_sites`, `alt_availability`
+
+| primary_drug_id | alt_generic_name | alt_din | shortage_active | availability | Note |
+|---|---|---|---|---|---|
+| D1 | Carbachol | 00042544 | Yes (Tier 2) | Limited | Makes MIOCHOL-E situation actionable — both primary and first alternative are under shortage |
+| D1 | Pilocarpine | 02213044 | No | Uncertain | May be discontinued in DPD |
+| D2 | Morphine | 02302764 | No | Available | |
+| D2 | Oxycodone/Acetaminophen | 02324628 | No | Available | Combination product |
+| D3 | Rosuvastatin | 02337991 | No | Available | |
+| D3 | Simvastatin | 02332000 | No | Available | |
+| D4 | Insulin Detemir | 02271842 | No | Limited | Anticipated discontinuation Dec 2025 |
+| D4 | Insulin Degludec | 02467860 | No | Available | |
+| D5 | Bisoprolol | 02302640 | No | Available | |
+| D5 | Atenolol | 02266660 | No | Available | |
 
 ### Final deliverable view: `v_inventory_dashboard`
 
@@ -217,17 +236,51 @@ ORDER  BY i.days_of_supply ASC;
 4. **Manual shortage lookup** — healthproductshortages.ca blocks automated fetching. Data sourced by hand and labelled with the lookup date.
 5. **SQLite over PostgreSQL** — chosen to satisfy the one-command run requirement. PostgreSQL requires a running server; SQLite is a file. GUI: DBeaver.
 6. **One-command run via auto-seed** — `app.py` checks for `data/bdm.db` on startup and seeds it automatically if missing.
-7. **drug_alternatives via DPD API** — seed script will call the Health Canada DPD API live to fetch alternatives. If unresolvable, escalate to Dawson before hardcoding.
+7. **drug_alternatives DINs hardcoded** — DPD REST API returned empty responses at time of seeding. 10 real Canadian DINs sourced manually on 2026-11-11 and baked into `data/seed.py`. Do not attempt to restore live API calls without verifying the DPD API is serving data again.
 8. **avg_7d and avg_30d meaningfully different** — selected rows show 7d > 30d to simulate trending demand.
 9. **All 25 inventory snapshot rows approved by Dawson** — values locked in. Do not change without Dawson's sign-off.
 
 ---
 
+## Current State — End of Piece 2
+
+**Complete:**
+- `data/seed.py` — idempotent, runs cleanly, all 4 tables populated, view created
+- `requirements.txt`
+- `.gitignore`
+- All data designed, approved, and seeded
+
+**Verified working:**
+```
+python3 data/seed.py
+```
+Produces `data/bdm.db` with 5 sites, 5 drugs, 25 inventory snapshots, 10 alternatives, and `v_inventory_dashboard`.
+
+The 7-day critical alert query returns 6 rows in the correct order:
+1. Acetylcholine / Saskatoon — 4.0 days — Tier 3 shortage
+2. Hydromorphone / Vancouver — 5.0 days
+3. Atorvastatin / Ottawa — 5.0 days
+4. Insulin Glargine / Halifax — 6.0 days
+5. Acetylcholine / Ottawa — 7.0 days (boundary) — Tier 3 shortage
+6. Metoprolol / Vancouver — 7.0 days (boundary)
+
 ## Open Items for Next Session
 
-1. **Write `data/seed.py`** — creates all 4 tables, inserts all approved data, creates `v_inventory_dashboard` view. Attempts to fetch drug_alternatives via Health Canada DPD API. This is the first file to write.
-2. **Write `app.py`** — Streamlit UI with auto-seed on startup, 7-day alert view, geography filters.
-3. **`drug_alternatives` data** — not yet populated. Seed script will attempt DPD API; escalate to Dawson if issues arise.
+1. **Write `app.py`** — Piece 3. Streamlit UI with auto-seed on startup if `data/bdm.db` is missing, 7-day alert view, geography rollup filters. See app.py spec below.
+2. **Piece 4** — Geography rollup filter controls (site / city / province / region).
+3. **Piece 5 (stretch)** — Demand forecast.
+4. **Piece 6 (stretch)** — Alternatives panel in the UI.
+5. **Piece 7** — `writeup.md` and final polish.
+
+## app.py Spec (Piece 3)
+
+- On startup: check if `data/bdm.db` exists. If not, call `data.seed.seed()`.
+- Connect to `data/bdm.db` with `sqlite3`.
+- Main view: table of all rows from `v_inventory_dashboard` where `alert_level = 'critical'`, ordered by `days_of_supply` ASC.
+- Colour coding: `critical` = red, `concern` = yellow, `none` = green, `untracked` = grey.
+- Shortage flag: show `shortage_tier` badge next to drug name when `shortage_active = 1`.
+- Geography filters: sidebar dropdowns for region, province, city, site.
+- Run command: `streamlit run app.py`
 
 ---
 

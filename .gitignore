@@ -1,0 +1,5 @@
+data/bdm.db
+.DS_Store
+.Rhistory
+__pycache__/
+*.pyc
