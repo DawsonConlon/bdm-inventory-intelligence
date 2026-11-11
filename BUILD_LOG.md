@@ -174,6 +174,24 @@ Four relational tables:
 #### Piece 2 Complete
 Seed script is working. `streamlit run app.py` will auto-call `data/seed.py` on first run if `data/bdm.db` is missing. No code exists for `app.py` yet.
 
+---
+
+#### Accomplishments (continued — same session, Piece 3)
+- Wrote `app.py` — Streamlit UI answering the core 7-day question
+- Auto-seed on startup: `app.py` checks for `data/bdm.db` and calls `data.seed.seed()` if missing; one-command run requirement fully satisfied
+- 4 summary metric tiles: Critical Items / Shortage Flags / Sites Affected / Provinces Affected
+- Cascading geography sidebar filters: Region → Province → City → Site (each narrows the next)
+- Alert table with `pandas.Styler` row coloring: shortage rows highlighted `#FFCCCC`, non-shortage rows white
+- Drug shortage tier badge: "[Tier 3]" appended to drug name in table when `shortage_active == 1`
+- Created `.claude/launch.json` for browser preview via `python3 -m streamlit run app.py`
+
+#### Piece 3 Complete — Verified in browser
+Unfiltered view confirmed:
+- **6 critical rows** displayed, sorted ascending by days_of_supply (4.0 → 5.0 → 5.0 → 6.0 → 7.0 → 7.0)
+- **Tiles:** Critical Items: 6 | Shortage Flags: 2 | Sites Affected: 4 | Provinces Affected: 4
+- **Shortage rows** (both Acetylcholine Chloride) highlighted pink with [Tier 3] badge
+- **Geography filters** cascade correctly — Province/City/Site dropdowns update based on upstream selections
+
 #### Drug Alternatives — Notable Flags
 - **Carbachol** (D1 alt): DIN 00042544. Simulated Tier 2 shortage, availability = Limited. Makes the MIOCHOL-E situation actionable — the primary drug is Tier 3 shortage AND its first alternative is also compromised.
 - **Pilocarpine** (D1 alt): DIN 02213044. Availability = Uncertain (may be discontinued in DPD).

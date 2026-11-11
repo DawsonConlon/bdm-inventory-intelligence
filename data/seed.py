@@ -6,12 +6,19 @@ v_inventory_dashboard view. Idempotent: re-running drops and recreates everythin
 
 drug_alternatives are hardcoded with real Health Canada DINs sourced manually
 on 2026-11-11. The DPD REST API was returning empty responses at time of seeding.
+
+Run it with:  python data/seed.py
 """
 
 import os
 import sqlite3
 
+# bdm.db is created next to this script (data/bdm.db), no matter which folder
+# you run the script from. __file__ is the path of this script.
 DB_PATH = os.path.join(os.path.dirname(__file__), "bdm.db")
+
+# The "as of" date stamped on every inventory row and on the shortage lookup.
+# Dates are stored as ISO text (YYYY-MM-DD) because SQLite has no date type.
 SNAPSHOT_DATE = "2026-11-11"
 
 
@@ -20,6 +27,9 @@ SNAPSHOT_DATE = "2026-11-11"
 # ---------------------------------------------------------------------------
 
 def create_tables(conn: sqlite3.Connection) -> None:
+    # executescript() runs several SQL statements in one call.
+    # The DROPs come first so the script can be re-run safely: old tables are
+    # wiped and rebuilt. "IF EXISTS" stops an error on the very first run.
     conn.executescript("""
         DROP TABLE IF EXISTS drug_alternatives;
         DROP TABLE IF EXISTS inventory_snapshots;
@@ -27,43 +37,50 @@ def create_tables(conn: sqlite3.Connection) -> None:
         DROP TABLE IF EXISTS sites;
         DROP VIEW  IF EXISTS v_inventory_dashboard;
 
+        -- sites: the 5 hospital pharmacies. One row per site.
         CREATE TABLE sites (
-            site_id   TEXT PRIMARY KEY,
+            site_id   TEXT PRIMARY KEY,   -- short code like 'S01'
             site_name TEXT NOT NULL,
             city      TEXT NOT NULL,
             province  TEXT NOT NULL,
-            region    TEXT NOT NULL
+            region    TEXT NOT NULL       -- Prairies / Pacific / Central / Atlantic
         );
 
+        -- drugs: the 5 tracked drugs, including their shortage status.
+        -- Shortage info lives here (not per site) because a shortage is national.
         CREATE TABLE drugs (
-            drug_id              TEXT PRIMARY KEY,
+            drug_id              TEXT PRIMARY KEY,   -- 'D1'..'D5'
             generic_name         TEXT NOT NULL,
             brand_name           TEXT NOT NULL,
-            din                  TEXT NOT NULL,
-            atc_code             TEXT,
-            shortage_active      INTEGER NOT NULL DEFAULT 0,
-            shortage_tier        TEXT,
-            shortage_report_id   TEXT,
+            din                  TEXT NOT NULL,      -- Health Canada Drug Identification Number (TEXT keeps leading zeros)
+            atc_code             TEXT,               -- WHO drug classification code
+            shortage_active      INTEGER NOT NULL DEFAULT 0,  -- SQLite has no boolean: 1 = yes, 0 = no
+            shortage_tier        TEXT,               -- severity, e.g. 'Tier 3'
+            shortage_report_id   TEXT,               -- Health Canada shortage report number
             shortage_start_date  TEXT,
-            shortage_end_date    TEXT,
-            shortage_lookup_date TEXT,
+            shortage_end_date    TEXT,               -- estimated end
+            shortage_lookup_date TEXT,               -- when we checked the shortage status
             notes                TEXT
         );
 
+        -- inventory_snapshots: stock level of one drug at one site on one date.
+        -- This is the core table the dashboard is built on (5 sites x 5 drugs = 25 rows).
         CREATE TABLE inventory_snapshots (
             snapshot_id        INTEGER PRIMARY KEY AUTOINCREMENT,
-            site_id            TEXT    NOT NULL REFERENCES sites(site_id),
-            drug_id            TEXT    NOT NULL REFERENCES drugs(drug_id),
+            site_id            TEXT    NOT NULL REFERENCES sites(site_id),   -- foreign key to sites
+            drug_id            TEXT    NOT NULL REFERENCES drugs(drug_id),   -- foreign key to drugs
             snapshot_date      TEXT    NOT NULL,
-            qty_on_hand        REAL,
-            tracking_status    TEXT    NOT NULL,
-            avg_daily_usage_7d  REAL    NOT NULL,
-            avg_daily_usage_30d REAL    NOT NULL,
-            days_of_supply     REAL,
-            display_qty        TEXT    NOT NULL,
-            alert_level        TEXT    NOT NULL
+            qty_on_hand        REAL,                -- NULL allowed: untracked site has no number
+            tracking_status    TEXT    NOT NULL,    -- 'tracked' / 'untracked' / 'negative' (bad data)
+            avg_daily_usage_7d  REAL    NOT NULL,   -- units used per day, last 7 days
+            avg_daily_usage_30d REAL    NOT NULL,   -- units used per day, last 30 days
+            days_of_supply     REAL,                -- qty / avg 7d usage; NULL when it can't be trusted
+            display_qty        TEXT    NOT NULL,    -- ready-to-show text, e.g. '7,700 tablets' or 'N/A'
+            alert_level        TEXT    NOT NULL     -- 'critical' / 'concern' / 'none' / 'untracked'
         );
 
+        -- drug_alternatives: substitute drugs to consider when a primary drug runs low.
+        -- Many rows can point at the same primary drug (2 per drug here).
         CREATE TABLE drug_alternatives (
             alt_id                    INTEGER PRIMARY KEY AUTOINCREMENT,
             primary_drug_id           TEXT    NOT NULL REFERENCES drugs(drug_id),
@@ -72,8 +89,8 @@ def create_tables(conn: sqlite3.Connection) -> None:
             alt_atc_code              TEXT,
             alt_shortage_active       INTEGER NOT NULL DEFAULT 0,
             alt_shortage_tier         TEXT,
-            alt_qty_on_hand_all_sites REAL,
-            alt_availability          TEXT    NOT NULL
+            alt_qty_on_hand_all_sites REAL,          -- total stock of the alternative across all sites
+            alt_availability          TEXT    NOT NULL  -- 'Available' / 'Limited' / 'Uncertain'
         );
     """)
 
@@ -83,6 +100,7 @@ def create_tables(conn: sqlite3.Connection) -> None:
 # ---------------------------------------------------------------------------
 
 def insert_sites(conn: sqlite3.Connection) -> None:
+    # Each tuple is one row, in the same column order as the sites table.
     rows = [
         ("S01", "Royal University Hospital Pharmacy",    "Saskatoon", "SK", "Prairies"),
         ("S02", "Foothills Medical Centre Pharmacy",     "Calgary",   "AB", "Prairies"),
@@ -90,6 +108,9 @@ def insert_sites(conn: sqlite3.Connection) -> None:
         ("S04", "The Ottawa Hospital Pharmacy",          "Ottawa",    "ON", "Central"),
         ("S05", "QEII Health Sciences Pharmacy",         "Halifax",   "NS", "Atlantic"),
     ]
+    # executemany runs the INSERT once per tuple. Each "?" is filled by one
+    # value from the tuple. Using "?" (instead of building the string by hand)
+    # is the safe way to pass values into SQL.
     conn.executemany(
         "INSERT INTO sites VALUES (?,?,?,?,?)",
         rows,
@@ -101,7 +122,11 @@ def insert_sites(conn: sqlite3.Connection) -> None:
 # ---------------------------------------------------------------------------
 
 def insert_drugs(conn: sqlite3.Connection) -> None:
+    # Column order: id, generic, brand, DIN, ATC, shortage_active, tier,
+    # report_id, start, end, lookup_date, notes.
+    # None becomes NULL in the database (used when there is no shortage).
     rows = [
+        # D1 is the only drug with a real, active shortage (the story of the demo).
         (
             "D1", "Acetylcholine Chloride", "MIOCHOL-E", "02133326", "S01EB",
             1, "Tier 3", "272933", "2025-12-04", "2027-02-05", SNAPSHOT_DATE,
@@ -140,6 +165,14 @@ def insert_drugs(conn: sqlite3.Connection) -> None:
 
 def _snap(site_id, drug_id, qty, avg7, avg30, days, alert, tracking, unit):
     """Build one snapshot row. Handles N/A display and NULL days."""
+    # The leading underscore is a Python convention meaning "internal helper,
+    # only used inside this file".
+    #
+    # Two kinds of rows can't be trusted for a days-of-supply number:
+    #   untracked: the site doesn't track this drug, so qty is None.
+    #   negative:  the site reported a negative quantity (a data error).
+    # For both we show "N/A" and store NULL for days_of_supply, so the
+    # dashboard never displays a misleading number.
     if tracking in ("untracked", "negative"):
         display = "N/A"
         days_val = None
@@ -148,24 +181,33 @@ def _snap(site_id, drug_id, qty, avg7, avg30, days, alert, tracking, unit):
         qty_val = qty
         days_val = days
         # Format qty with commas; integers only (all our values are whole numbers)
+        # e.g. 7700 -> "7,700 tablets"
         display = f"{int(qty):,} {unit}"
+    # Tuple order must match the column list in insert_inventory_snapshots().
     return (site_id, drug_id, SNAPSHOT_DATE, qty_val, tracking, avg7, avg30, days_val, display, alert)
 
 
 def insert_inventory_snapshots(conn: sqlite3.Connection) -> None:
+    # Arguments to _snap: site, drug, qty, avg 7d usage, avg 30d usage,
+    #                     days of supply, alert level, tracking status, unit.
+    #
+    # days_of_supply was calculated by hand as qty / avg 7-day usage, and the
+    # alert level follows these cutoffs: critical <= 7 days, concern < 15 days,
+    # none >= 15 days. Each drug is deliberately seeded with a mix of levels
+    # so the dashboard has something interesting to show.
     rows = [
         # D1 — Acetylcholine Chloride (vials) — Active Shortage Tier 3
         _snap("S01","D1", 32,   8,    7,    4.0,  "critical",  "tracked",   "vials"),
         _snap("S02","D1", 72,   6,    5,    12.0, "concern",   "tracked",   "vials"),
         _snap("S03","D1", 180,  9,    9,    20.0, "none",      "tracked",   "vials"),
         _snap("S04","D1", 49,   7,    7,    7.0,  "critical",  "tracked",   "vials"),
-        _snap("S05","D1", None, 4,    4,    None, "untracked", "untracked", "vials"),
+        _snap("S05","D1", None, 4,    4,    None, "untracked", "untracked", "vials"),  # edge case: no data
 
         # D2 — Hydromorphone HCl 2mg (tablets) — No Shortage
         _snap("S01","D2", 7700, 220,  200,  35.0, "none",      "tracked",   "tablets"),
         _snap("S02","D2", 1980, 180,  170,  11.0, "concern",   "tracked",   "tablets"),
         _snap("S03","D2", 750,  150,  140,  5.0,  "critical",  "tracked",   "tablets"),
-        _snap("S04","D2", -40,  160,  155,  None, "untracked", "negative",  "tablets"),
+        _snap("S04","D2", -40,  160,  155,  None, "untracked", "negative",  "tablets"),  # edge case: bad data
         _snap("S05","D2", 2400, 120,  115,  20.0, "none",      "tracked",   "tablets"),
 
         # D3 — Atorvastatin (tablets) — No Shortage
@@ -189,6 +231,8 @@ def insert_inventory_snapshots(conn: sqlite3.Connection) -> None:
         _snap("S04","D5", 1800, 120,  115,  15.0, "none",      "tracked",   "tablets"),
         _snap("S05","D5", 1200, 100,  95,   12.0, "concern",   "tracked",   "tablets"),
     ]
+    # snapshot_id is not listed: AUTOINCREMENT fills it in automatically.
+    # Here we name the columns explicitly because we are skipping one.
     conn.executemany(
         """INSERT INTO inventory_snapshots
            (site_id, drug_id, snapshot_date, qty_on_hand, tracking_status,
@@ -200,7 +244,7 @@ def insert_inventory_snapshots(conn: sqlite3.Connection) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Drug alternatives — fetched live from Health Canada DPD API
+# Drug alternatives — hardcoded (see notes below)
 # ---------------------------------------------------------------------------
 
 # Alternatives with real Health Canada DINs sourced manually on 2026-11-11.
@@ -209,6 +253,9 @@ def insert_inventory_snapshots(conn: sqlite3.Connection) -> None:
 # Carbachol flagged as also at risk to make the MIOCHOL-E shortage situation actionable.
 # Pilocarpine DIN 02213044 may be discontinued — flagged as Uncertain.
 # Insulin Detemir DIN 02271842 has anticipated discontinuation Dec 2025 — flagged as Limited.
+#
+# Tuple order: primary drug, alt name, alt DIN, alt ATC, alt shortage_active,
+#              alt shortage tier, total qty across all sites (simulated), availability.
 _ALTERNATIVES = [
     # D1 — Acetylcholine Chloride alternatives (S01EB ophthalmic parasympathomimetics)
     ("D1", "Carbachol",               "00042544", "S01EB02", 1, "Tier 2", 48,    "Limited"),
@@ -233,6 +280,8 @@ _ALTERNATIVES = [
 
 
 def fetch_drug_alternatives(conn: sqlite3.Connection) -> None:
+    # Despite the name, nothing is fetched: this just inserts the hardcoded
+    # list above. (The name is left over from the plan to call the DPD API.)
     conn.executemany(
         """INSERT INTO drug_alternatives
            (primary_drug_id, alt_generic_name, alt_din, alt_atc_code,
@@ -249,6 +298,10 @@ def fetch_drug_alternatives(conn: sqlite3.Connection) -> None:
 # ---------------------------------------------------------------------------
 
 def create_view(conn: sqlite3.Connection) -> None:
+    # A VIEW is a saved query that behaves like a read-only table. It stitches
+    # inventory + site + drug info into one flat table so the Streamlit app
+    # can run a simple "SELECT * FROM v_inventory_dashboard" and never has to
+    # write JOINs itself. It stores no data of its own, so it is always current.
     conn.execute("""
         CREATE VIEW v_inventory_dashboard AS
         SELECT
@@ -274,8 +327,8 @@ def create_view(conn: sqlite3.Connection) -> None:
             i.display_qty,
             i.alert_level
         FROM  inventory_snapshots i
-        JOIN  sites s ON i.site_id  = s.site_id
-        JOIN  drugs d ON i.drug_id  = d.drug_id
+        JOIN  sites s ON i.site_id  = s.site_id   -- attach site details to each row
+        JOIN  drugs d ON i.drug_id  = d.drug_id   -- attach drug + shortage details
     """)
 
 
@@ -284,25 +337,36 @@ def create_view(conn: sqlite3.Connection) -> None:
 # ---------------------------------------------------------------------------
 
 def seed() -> None:
+    # Make sure the data/ folder exists before SQLite tries to create a file in it.
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+
+    # Opens bdm.db, creating the file if it doesn't exist.
     conn = sqlite3.connect(DB_PATH)
     try:
+        # Order matters: parent tables (sites, drugs) must be filled before
+        # tables that reference them, and the view is created last because
+        # it reads from the tables above.
         create_tables(conn)
         insert_sites(conn)
         insert_drugs(conn)
         insert_inventory_snapshots(conn)
         fetch_drug_alternatives(conn)
         create_view(conn)
+
+        # Nothing is saved to disk until commit(). If any step above fails,
+        # we never reach this line.
         conn.commit()
         print(f"\nDatabase created: {DB_PATH}")
         print("Tables: sites, drugs, inventory_snapshots, drug_alternatives")
         print("View:   v_inventory_dashboard")
     except Exception:
-        conn.rollback()
-        raise
+        conn.rollback()  # undo any half-finished inserts
+        raise            # re-raise so you still see the real error
     finally:
-        conn.close()
+        conn.close()     # always runs, success or failure
 
 
+# Only run seed() when this file is executed directly (python seed.py),
+# not when another file does "import seed".
 if __name__ == "__main__":
     seed()

@@ -48,9 +48,8 @@ Files currently in the repo:
 - `requirements.txt` — Python dependencies
 - `.gitignore` — excludes `data/bdm.db`, `.DS_Store`, `__pycache__`
 - `data/seed.py` — database seed script (complete and working)
-
-**Not yet in the repo (next to build):**
-- `app.py` — Streamlit UI (Piece 3)
+- `app.py` — Streamlit UI (Piece 3 — complete and working)
+- `.claude/launch.json` — browser preview config for Claude Code desktop app
 
 ---
 
@@ -242,45 +241,33 @@ ORDER  BY i.days_of_supply ASC;
 
 ---
 
-## Current State — End of Piece 2
+## Current State — End of Piece 3
 
 **Complete:**
 - `data/seed.py` — idempotent, runs cleanly, all 4 tables populated, view created
 - `requirements.txt`
 - `.gitignore`
 - All data designed, approved, and seeded
+- `app.py` — Streamlit UI, verified working in browser
 
-**Verified working:**
+**Run command:**
 ```
-python3 data/seed.py
+streamlit run app.py
 ```
-Produces `data/bdm.db` with 5 sites, 5 drugs, 25 inventory snapshots, 10 alternatives, and `v_inventory_dashboard`.
+On first run, `app.py` auto-seeds the database if `data/bdm.db` is missing.
 
-The 7-day critical alert query returns 6 rows in the correct order:
-1. Acetylcholine / Saskatoon — 4.0 days — Tier 3 shortage
-2. Hydromorphone / Vancouver — 5.0 days
-3. Atorvastatin / Ottawa — 5.0 days
-4. Insulin Glargine / Halifax — 6.0 days
-5. Acetylcholine / Ottawa — 7.0 days (boundary) — Tier 3 shortage
-6. Metoprolol / Vancouver — 7.0 days (boundary)
+**Verified in browser (unfiltered):**
+- 6 critical rows, sorted by days_of_supply ascending (4.0 → 5.0 → 5.0 → 6.0 → 7.0 → 7.0)
+- Tiles: Critical Items 6 | Shortage Flags 2 | Sites Affected 4 | Provinces Affected 4
+- Acetylcholine Chloride rows show "[Tier 3]" badge and pink (#FFCCCC) highlight
+- Geography sidebar filters cascade correctly
 
 ## Open Items for Next Session
 
-1. **Write `app.py`** — Piece 3. Streamlit UI with auto-seed on startup if `data/bdm.db` is missing, 7-day alert view, geography rollup filters. See app.py spec below.
-2. **Piece 4** — Geography rollup filter controls (site / city / province / region).
-3. **Piece 5 (stretch)** — Demand forecast.
-4. **Piece 6 (stretch)** — Alternatives panel in the UI.
-5. **Piece 7** — `writeup.md` and final polish.
-
-## app.py Spec (Piece 3)
-
-- On startup: check if `data/bdm.db` exists. If not, call `data.seed.seed()`.
-- Connect to `data/bdm.db` with `sqlite3`.
-- Main view: table of all rows from `v_inventory_dashboard` where `alert_level = 'critical'`, ordered by `days_of_supply` ASC.
-- Colour coding: `critical` = red, `concern` = yellow, `none` = green, `untracked` = grey.
-- Shortage flag: show `shortage_tier` badge next to drug name when `shortage_active = 1`.
-- Geography filters: sidebar dropdowns for region, province, city, site.
-- Run command: `streamlit run app.py`
+1. **Piece 4** — Geography rollup: consider adding a "full inventory" tab showing all 25 rows (not just criticals). Dawson said this "might change in the future".
+2. **Piece 5 (stretch)** — Demand forecast (14-day probabilistic with quantiles).
+3. **Piece 6 (stretch)** — Alternatives panel in the UI (show `drug_alternatives` data for each critical row).
+4. **Piece 7** — `writeup.md` and final polish (sources, simulated parts, data problems, what's next). README. One-command run final verification.
 
 ---
 
