@@ -45,12 +45,22 @@ Four relational tables:
 3. **`inventory_snapshots`** — 25 rows (5 sites × 5 drugs): qty on hand, avg daily usage, days of supply, alert status (simulated stock, researched usage baselines)
 4. **`drug_alternatives`** — therapeutic substitutes for each drug, with their own shortage status and system-wide stock (Health Canada DPD ATC codes + Health Product Shortages Canada API; stock simulated)
 
+### Confirmed Drug List
+
+| ID | Generic Name | Brand Name | DIN | Shortage | Tier | Notes |
+|---|---|---|---|---|---|---|
+| D1 | Acetylcholine Chloride | MIOCHOL-E | 02133326 | ✅ Active | Tier 3 | Ophthalmic surgical (cataract); manufacturing disruption; runs to 2027-02-05. ATC: S01EB. Sourced manually from healthproductshortages.ca/shortage/272933 on 2026-11-11 |
+| D2 | Hydromorphone | APO-Hydromorphone | TBD | ⚠️ Verify | TBD | March 2026 shortage report found; current status to be confirmed manually on healthproductshortages.ca |
+| D3 | Atorvastatin | Lipitor | 02230711 | ❌ None | — | Common statin, no active shortage |
+| D4 | Insulin Glargine | Lantus | 02240292 | ❌ None | — | High daily volume, no active shortage |
+| D5 | Metoprolol | Lopressor | 00648051 | ❌ None | — | Common cardiac drug, no active shortage |
+
 ### Data Sources
 
 | Source | Type | Used For |
 |---|---|---|
-| Health Canada Drug Product Database (DPD) | Real — bulk extract | Drug names, DINs, strengths, canonical units, ATC therapeutic class |
-| Health Product Shortages Canada API | Real — live API | Shortage flags, tier levels, alternative drug shortage status |
+| Health Canada Drug Product Database (DPD) | Real — REST API | Drug names, DINs, strengths, canonical units, ATC therapeutic class |
+| Health Product Shortages Canada | Real — manual lookup (site blocks automated access) | Shortage flags and tier levels sourced by hand, labelled with lookup date |
 | Simulated — researched baselines | Synthetic | Stock levels, avg daily usage rates, site locations |
 
 ### Situations Demonstrated in the Data
@@ -120,10 +130,43 @@ Four relational tables:
 - Negative and untracked stock → N/A per challenge brief
 
 #### Blockers / Open Questions
-- Health Product Shortages Canada API access method not yet decided (Option A/B/C — see above)
+- ~~Health Product Shortages Canada API access method~~ — resolved: manual lookup, labelled with date
+- ~~Tier 3 shortage drug selection~~ — resolved: MIOCHOL-E / Acetylcholine Chloride (DIN 02133326)
+- Hydromorphone shortage status still needs manual verification on healthproductshortages.ca
 - Tech stack not yet confirmed (Python + Streamlit most likely)
 - Avg daily usage baselines for the 5 chosen drugs not yet researched
 - Architecture diagram not yet sketched
+
+---
+
+### Day 2 — 2026-11-11
+
+#### Planned
+- Confirm Tier 3 shortage drug
+- Finalise shortage data approach
+- Confirm tech stack
+- Decide on database service
+- Begin writing code
+
+#### Accomplished
+- Swapped Tier 3 drug from Stannous MAA Kit → MIOCHOL-E (Acetylcholine Chloride, DIN 02133326) — better choice because it has an ATC code (S01EB) enabling real alternatives lookup and has a longer active shortage (to 2027-02-05)
+- Confirmed shortage data approach: manual lookup at healthproductshortages.ca, flags hardcoded with lookup date 2026-11-11
+- Confirmed tech stack: Python + Streamlit + Plotly, run with `streamlit run app.py`
+- Produced full ERD diagram showing all 4 tables and foreign key relationships
+- Produced prototype query result mockup showing the 7-day alert view
+- Identified that SQL Workbench does not support SQLite — discussed DBeaver and DB Browser for SQLite as alternatives, or switching to PostgreSQL
+- Created HANDOFF.md to bring a new session up to speed
+
+#### Decisions Made
+- MIOCHOL-E selected as Tier 3 shortage drug (Dawson)
+- Shortage data: manual lookup approach confirmed
+- Tech stack: Python + Streamlit confirmed
+- Repo structure defined
+
+#### Blockers / Open Questions
+- **Database service not yet decided** — SQLite + DBeaver vs PostgreSQL. This is the first decision for the next session before any code is written.
+- Hydromorphone shortage status still needs manual verification
+- Avg daily usage baselines for the 5 drugs not yet researched
 
 ---
 
