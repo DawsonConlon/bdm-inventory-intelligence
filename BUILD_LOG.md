@@ -50,7 +50,7 @@ Four relational tables:
 | ID | Generic Name | Brand Name | DIN | Shortage | Tier | Notes |
 |---|---|---|---|---|---|---|
 | D1 | Acetylcholine Chloride | MIOCHOL-E | 02133326 | ✅ Active | Tier 3 | Ophthalmic surgical (cataract); manufacturing disruption; runs to 2027-02-05. ATC: S01EB. Sourced manually from healthproductshortages.ca/shortage/272933 on 2026-11-11 |
-| D2 | Hydromorphone | APO-Hydromorphone | TBD | ⚠️ Verify | TBD | March 2026 shortage report found; current status to be confirmed manually on healthproductshortages.ca |
+| D2 | Hydromorphone HCl | APO-Hydromorphone | 02364123 | ❌ None | — | Last shortage resolved 2017-12-14 (Report 26163). No active shortage. ATC: N02AA |
 | D3 | Atorvastatin | Lipitor | 02230711 | ❌ None | — | Common statin, no active shortage |
 | D4 | Insulin Glargine | Lantus | 02240292 | ❌ None | — | High daily volume, no active shortage |
 | D5 | Metoprolol | Lopressor | 00648051 | ❌ None | — | Common cardiac drug, no active shortage |
@@ -163,10 +163,102 @@ Four relational tables:
 - Tech stack: Python + Streamlit confirmed
 - Repo structure defined
 
+#### Decisions Made (continued)
+- **Database service: SQLite** — chosen over PostgreSQL to satisfy the one-command run requirement. PostgreSQL would require a running server before `streamlit run app.py` could work, making setup harder for the reviewer. SQLite is a single file; the seed script creates and populates it on first run, so the entire stack boots in one command. GUI query tool: DBeaver (free, supports SQLite natively, full workbench experience).
+- **One-command run confirmed:** `app.py` will auto-call the seed script on startup if the database file does not exist. Reviewer clones and runs `streamlit run app.py` — nothing else required.
+- **drug_alternatives sourcing:** Try the Health Canada DPD API live at seed time first. If the API causes unresolvable issues, escalate to Dawson before hardcoding.
+- **avg_daily_usage_7d vs avg_daily_usage_30d:** Meaningfully different on selected rows to simulate trending demand (7d > 30d = usage trending up).
+- **Hydromorphone shortage verified:** Last shortage resolved 2017-12-14 (Report ID 26163). No active shortage. DIN confirmed: 02364123. ATC: N02AA. D2 is a clean drug.
+- **All 25 inventory snapshot rows approved by Dawson** — specific qty_on_hand and avg_daily_usage values locked in. All 10 showcase situations confirmed covered. See full table below.
+
 #### Blockers / Open Questions
-- **Database service not yet decided** — SQLite + DBeaver vs PostgreSQL. This is the first decision for the next session before any code is written.
-- Hydromorphone shortage status still needs manual verification
-- Avg daily usage baselines for the 5 drugs not yet researched
+- ~~Hydromorphone shortage status~~ — resolved (see above)
+- ~~Avg daily usage baselines~~ — researched and documented. See Avg Daily Usage Baselines section.
+- ~~Full 25-row inventory data~~ — approved. See Approved Inventory Snapshot Data section.
+- **drug_alternatives table data** — real alternatives per ATC class not yet researched. To be fetched via Health Canada DPD API during seed script development. Fallback: hardcode after Dawson approval.
+- **Seed script not yet written** — next phase.
+
+---
+
+---
+
+## Approved Inventory Snapshot Data
+
+All 25 rows approved by Dawson on 2026-11-11. Rows marked * have avg_7d diverging from avg_30d (simulated trending demand).
+
+### D1 — Acetylcholine Chloride (vials) — Active Shortage, Tier 3
+
+| Site | avg_7d | avg_30d | qty_on_hand | days_of_supply | alert | Situation |
+|---|---|---|---|---|---|---|
+| S01 Saskatoon | 8 | 7* | 32 | 4.0 | critical | #5: critical + shortage |
+| S02 Calgary | 6 | 5* | 72 | 12.0 | concern | #7: concern + shortage |
+| S03 Vancouver | 9 | 9 | 180 | 20.0 | none | #6: healthy + shortage |
+| S04 Ottawa | 7 | 7 | 49 | 7.0 | critical | #4+5: exactly 7d + shortage |
+| S05 Halifax | 4 | 4 | NULL | N/A | untracked | #8: untracked stock |
+
+### D2 — Hydromorphone HCl (2mg tablets) — No Shortage
+
+| Site | avg_7d | avg_30d | qty_on_hand | days_of_supply | alert | Situation |
+|---|---|---|---|---|---|---|
+| S01 Saskatoon | 220 | 200* | 7700 | 35.0 | none | #1: healthy |
+| S02 Calgary | 180 | 170 | 1980 | 11.0 | concern | #2: concern |
+| S03 Vancouver | 150 | 140* | 750 | 5.0 | critical | #3: critical, no shortage |
+| S04 Ottawa | 160 | 155 | -40 | N/A | untracked | #9: negative stock |
+| S05 Halifax | 120 | 115 | 2400 | 20.0 | none | #1: healthy |
+
+### D3 — Atorvastatin (tablets) — No Shortage
+
+| Site | avg_7d | avg_30d | qty_on_hand | days_of_supply | alert | Situation |
+|---|---|---|---|---|---|---|
+| S01 Saskatoon | 90 | 85 | 1890 | 21.0 | none | #10: healthy side of geography split |
+| S02 Calgary | 80 | 78 | 1200 | 15.0 | none | #1: healthy |
+| S03 Vancouver | 100 | 95 | 1000 | 10.0 | concern | #2: concern |
+| S04 Ottawa | 70 | 68 | 350 | 5.0 | critical | #10: critical side of geography split |
+| S05 Halifax | 65 | 60 | 975 | 15.0 | none | #1: healthy |
+
+### D4 — Insulin Glargine (IU) — No Shortage
+
+| Site | avg_7d | avg_30d | qty_on_hand | days_of_supply | alert | Situation |
+|---|---|---|---|---|---|---|
+| S01 Saskatoon | 1600 | 1500* | 36000 | 22.5 | none | #1: healthy |
+| S02 Calgary | 1800 | 1700 | 27000 | 15.0 | none | #1: healthy |
+| S03 Vancouver | 2000 | 1900 | 18000 | 9.0 | concern | #2: concern |
+| S04 Ottawa | 1400 | 1400 | 14000 | 10.0 | concern | #2: concern |
+| S05 Halifax | 1200 | 1100* | 7200 | 6.0 | critical | #3: critical |
+
+### D5 — Metoprolol (tablets) — No Shortage
+
+| Site | avg_7d | avg_30d | qty_on_hand | days_of_supply | alert | Situation |
+|---|---|---|---|---|---|---|
+| S01 Saskatoon | 150 | 145 | 2250 | 15.0 | none | #1: healthy |
+| S02 Calgary | 160 | 155 | 1920 | 12.0 | concern | #2: concern |
+| S03 Vancouver | 140 | 130* | 980 | 7.0 | critical | #4: exactly 7d, no shortage |
+| S04 Ottawa | 120 | 115 | 1800 | 15.0 | none | #1: healthy |
+| S05 Halifax | 100 | 95 | 1200 | 12.0 | concern | #2: concern |
+
+---
+
+## Avg Daily Usage Baselines
+
+Researched 2026-11-11. Sources: WHO ATC/DDD Index, Canadian Journal of Hospital Pharmacy, published Canadian hospital utilization studies. Assumptions based on a large tertiary hospital (~400–600 beds).
+
+| Drug | Unit | Daily range per site | Basis |
+|---|---|---|---|
+| Acetylcholine Chloride | vials (1 per cataract case) | 2–10 | Cataract OR throughput; high-volume ophthalmology: 8–10/day, lower-volume: 2–4/day |
+| Hydromorphone HCl 2mg | tablets | 100–300 | 65% inpatient opioid rate (Canadian tertiary hospitals); PRN orders rarely maxed; ~8–15 mg/day per patient |
+| Atorvastatin | tablets | 60–120 | ~20% of inpatients on a statin; continued from home medications; 1 tablet/day |
+| Insulin Glargine | IU | 1,200–2,000 | ~10% of inpatients on glargine × WHO DDD 40 IU; ~1–2 vials/day or 4–7 SoloStar pens/day |
+| Metoprolol | tablets | 80–180 | ~15% of inpatients on beta-blocker; typical dose 50 mg bid = 2 tablets/day |
+
+**Note on Acetylcholine Chloride:** No WHO DDD assigned — it is a single-use surgical drug, not a maintenance medication. Volume is driven by ophthalmology OR throughput, not patient days.
+
+**Sources:**
+- WHO ATC/DDD Index (N02AA03, C10AA05, C07AB02, A10AE04): https://atcddd.fhi.no/atc_ddd_index/
+- Inpatient opioid prescribing rate (65%, Canadian tertiary hospitals): https://ifp.nyu.edu/2024/journal-article-abstracts/opioid_prescribing_among_hospitalized_patients_in-4-aspx/
+- Hydromorphone as most common inpatient opioid (CJHP, Toronto): https://www.cjhp-online.ca/index.php/cjhp/article/view/1387
+- Post-event statin and beta-blocker rates (Ontario, PMC): https://pmc.ncbi.nlm.nih.gov/articles/PMC2700711/table/T3
+- Cataract surgery OR throughput: https://pmc.ncbi.nlm.nih.gov/articles/PMC4918740/
+- Canadian hospital diabetes/insulin utilization (CJHT): https://www.canjhealthtechnol.ca/index.php/cjht/article/download/AU0001/3545
 
 ---
 
