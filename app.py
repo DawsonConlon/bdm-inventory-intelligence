@@ -151,7 +151,7 @@ with tab1:
 
         styled = display_df.style.apply(highlight_critical, axis=1)
 
-        st.dataframe(styled, use_container_width=True, hide_index=True)
+        st.dataframe(styled, width="stretch", hide_index=True)
 
         if int(critical["shortage_active"].sum()) > 0:
             st.caption("Highlighted rows have an active drug shortage.")
@@ -203,7 +203,7 @@ with tab1:
                 "lead_time_days":   "Lead (days)",
                 "status":           "Status",
             })
-            st.dataframe(recent, hide_index=True, use_container_width=True)
+            st.dataframe(recent, hide_index=True, width="stretch")
 
 # ---------------------------------------------------------------------------
 # Tab 2 — Full Inventory
@@ -261,7 +261,7 @@ with tab2:
             return [f"background-color: {color}" if color else "" for _ in row]
 
         styled_full = display_full.style.apply(highlight_full, axis=1)
-        st.dataframe(styled_full, use_container_width=True, hide_index=True)
+        st.dataframe(styled_full, width="stretch", hide_index=True)
 
         st.caption(
             "Critical + shortage: dark orange  |  Critical: dark red  |  "

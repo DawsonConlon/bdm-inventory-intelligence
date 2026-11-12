@@ -316,8 +316,16 @@ Researched 2026-11-11. Sources: WHO ATC/DDD Index, Canadian Journal of Hospital 
 - Strategic purpose: procurement history is the foundation for future ML reorder-point and lead-time prediction models (Dawson's vision)
 
 **UI additions:**
-- Tab 1 (Critical Alerts): rows are now clickable via Streamlit `on_select="rerun"` row selection
-- Clicking a row shows a procurement detail panel below the table: avg lead time, avg unit cost, total orders (6 months), and a table of the 5 most recent orders with distributor name, qty, cost, lead days, and status
+- Tab 1 (Critical Alerts): "View procurement history for:" selectbox dropdown below the table — pick any drug/site combo, procurement panel appears below
+- Procurement panel shows: avg lead time, avg unit cost (delivered orders only), total orders (6 months), and 5 most recent orders with distributor name, qty, cost, lead days, and status
 - `load_purchase_orders()` and `load_distributors()` added as `@st.cache_data` functions
+
+**UX fix (same session):**
+- Initial implementation used Streamlit `on_select="rerun"` row selection which required clicking a small checkbox at the far left of each row — not intuitive
+- Replaced with a labeled `st.selectbox` below the table (Dawson flagged the issue)
+
+**Deprecation fix (same session):**
+- Streamlit 2.x deprecated `use_container_width=True` in favour of `width="stretch"`
+- Replaced all 3 occurrences in `app.py`
 
 <!-- Add new days below this line in the same format -->
