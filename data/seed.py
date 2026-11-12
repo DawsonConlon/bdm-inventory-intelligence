@@ -11,7 +11,9 @@ Run it with:  python data/seed.py
 """
 
 import os
+import random
 import sqlite3
+from datetime import date, timedelta
 
 # bdm.db is created next to this script (data/bdm.db), no matter which folder
 # you run the script from. __file__ is the path of this script.
@@ -31,10 +33,12 @@ def create_tables(conn: sqlite3.Connection) -> None:
     # The DROPs come first so the script can be re-run safely: old tables are
     # wiped and rebuilt. "IF EXISTS" stops an error on the very first run.
     conn.executescript("""
+        DROP TABLE IF EXISTS purchase_orders;
         DROP TABLE IF EXISTS drug_alternatives;
         DROP TABLE IF EXISTS inventory_snapshots;
         DROP TABLE IF EXISTS drugs;
         DROP TABLE IF EXISTS sites;
+        DROP TABLE IF EXISTS distributors;
         DROP VIEW  IF EXISTS v_inventory_dashboard;
 
         -- sites: the 5 hospital pharmacies. One row per site.
@@ -77,6 +81,30 @@ def create_tables(conn: sqlite3.Connection) -> None:
             days_of_supply     REAL,                -- qty / avg 7d usage; NULL when it can't be trusted
             display_qty        TEXT    NOT NULL,    -- ready-to-show text, e.g. '7,700 tablets' or 'N/A'
             alert_level        TEXT    NOT NULL     -- 'critical' / 'concern' / 'none' / 'untracked'
+        );
+
+        -- distributors: Canadian hospital drug distributors.
+        CREATE TABLE distributors (
+            distributor_id   TEXT PRIMARY KEY,
+            distributor_name TEXT NOT NULL,
+            distributor_type TEXT NOT NULL,  -- 'National' or 'Specialty'
+            contact_email    TEXT
+        );
+
+        -- purchase_orders: 6 months of procurement history per site per drug.
+        -- Lead times and costs vary by distributor — this is the data that
+        -- feeds future ML models for reorder-point and lead-time prediction.
+        CREATE TABLE purchase_orders (
+            order_id         TEXT PRIMARY KEY,
+            site_id          TEXT    NOT NULL REFERENCES sites(site_id),
+            drug_id          TEXT    NOT NULL REFERENCES drugs(drug_id),
+            distributor_id   TEXT    NOT NULL REFERENCES distributors(distributor_id),
+            order_date       TEXT    NOT NULL,   -- ISO date
+            delivery_date    TEXT    NOT NULL,
+            lead_time_days   INTEGER NOT NULL,
+            unit_cost        REAL    NOT NULL,   -- cost per canonical unit (vial / tablet / IU)
+            quantity_ordered INTEGER NOT NULL,
+            status           TEXT    NOT NULL    -- 'delivered' / 'in_transit' / 'pending'
         );
 
         -- drug_alternatives: substitute drugs to consider when a primary drug runs low.
@@ -244,6 +272,120 @@ def insert_inventory_snapshots(conn: sqlite3.Connection) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Distributors
+# ---------------------------------------------------------------------------
+
+def insert_distributors(conn: sqlite3.Connection) -> None:
+    rows = [
+        ("DIST01", "McKesson Canada",       "National",  "hospital.orders@mckesson.ca"),
+        ("DIST02", "Cardinal Health Canada", "National",  "hospital.supply@cardinalhealth.ca"),
+        ("DIST03", "Innomar Strategies",     "Specialty", "specialty@innomar.com"),
+    ]
+    conn.executemany("INSERT INTO distributors VALUES (?,?,?,?)", rows)
+    print("Distributors inserted.")
+
+
+# ---------------------------------------------------------------------------
+# Purchase orders — 6 months generated programmatically (May–Nov 2026)
+# ---------------------------------------------------------------------------
+
+# Lead time ranges (min, max) in days per distributor
+_DIST_LEAD = {
+    "DIST01": (2, 5),   # McKesson: national reach, reliable
+    "DIST02": (3, 7),   # Cardinal: slightly longer, competitive cost
+    "DIST03": (1, 4),   # Innomar: specialty/shortage drugs, fastest
+}
+
+# Per drug: (order_freq_days, unit_cost_lo, unit_cost_hi, primary_dist, secondary_dist)
+# Innomar is primary for D1 (shortage drug). Cardinal primary for insulin (D4).
+# McKesson primary for all others.
+_DRUG_ORDER_PROFILE = {
+    "D1": (14, 48.00, 62.00,  "DIST03", "DIST01"),
+    "D2": (7,  0.52,  0.78,   "DIST01", "DIST02"),
+    "D3": (14, 0.28,  0.52,   "DIST01", "DIST02"),
+    "D4": (7,  0.052, 0.068,  "DIST02", "DIST01"),
+    "D5": (14, 0.18,  0.32,   "DIST01", "DIST02"),
+}
+
+# Sites where Cardinal is preferred over McKesson for non-D1 drugs
+_SITE_DIST_OVERRIDE = {"S03": "DIST02", "S05": "DIST02"}
+
+# Avg daily usage per site-drug (mirrors inventory_snapshots values)
+_AVG_DAILY = {
+    ("S01","D1"): 8,    ("S02","D1"): 6,    ("S03","D1"): 9,    ("S04","D1"): 7,    ("S05","D1"): 4,
+    ("S01","D2"): 220,  ("S02","D2"): 180,  ("S03","D2"): 150,  ("S04","D2"): 160,  ("S05","D2"): 120,
+    ("S01","D3"): 90,   ("S02","D3"): 80,   ("S03","D3"): 100,  ("S04","D3"): 70,   ("S05","D3"): 65,
+    ("S01","D4"): 1600, ("S02","D4"): 1800, ("S03","D4"): 2000, ("S04","D4"): 1400, ("S05","D4"): 1200,
+    ("S01","D5"): 150,  ("S02","D5"): 160,  ("S03","D5"): 140,  ("S04","D5"): 120,  ("S05","D5"): 100,
+}
+
+
+def seed_purchase_orders(conn: sqlite3.Connection) -> None:
+    rng = random.Random(42)  # fixed seed = reproducible data every run
+    start = date(2026, 5, 12)
+    today = date(2026, 11, 11)  # snapshot date
+
+    rows = []
+    order_num = 1
+
+    for site_id in ["S01", "S02", "S03", "S04", "S05"]:
+        for drug_id in ["D1", "D2", "D3", "D4", "D5"]:
+            freq_days, cost_lo, cost_hi, primary_dist, secondary_dist = _DRUG_ORDER_PROFILE[drug_id]
+            avg_daily = _AVG_DAILY[(site_id, drug_id)]
+
+            # Regional distributor preference overrides for non-D1 drugs
+            if drug_id != "D1" and site_id in _SITE_DIST_OVERRIDE:
+                primary_dist = _SITE_DIST_OVERRIDE[site_id]
+                secondary_dist = "DIST01"
+
+            order_date = start
+            while order_date <= today:
+                # 80% primary distributor, 20% secondary
+                dist_id = primary_dist if rng.random() < 0.80 else secondary_dist
+
+                lead_lo, lead_hi = _DIST_LEAD[dist_id]
+                lead_days = rng.randint(lead_lo, lead_hi)
+                delivery_date = order_date + timedelta(days=lead_days)
+
+                # Quantity: avg_daily × order_freq × buffer (simulate realistic variance)
+                buffer = rng.uniform(0.90, 1.30)
+                qty = max(1, round(avg_daily * freq_days * buffer))
+
+                unit_cost = round(rng.uniform(cost_lo, cost_hi), 4)
+
+                if delivery_date <= today:
+                    status = "delivered"
+                elif order_date <= today:
+                    status = "in_transit"
+                else:
+                    status = "pending"
+
+                rows.append((
+                    f"PO{order_num:04d}",
+                    site_id, drug_id, dist_id,
+                    order_date.isoformat(),
+                    delivery_date.isoformat(),
+                    lead_days,
+                    unit_cost,
+                    qty,
+                    status,
+                ))
+                order_num += 1
+
+                jitter = rng.randint(-2, 2)
+                order_date += timedelta(days=freq_days + jitter)
+
+    conn.executemany(
+        """INSERT INTO purchase_orders
+           (order_id, site_id, drug_id, distributor_id, order_date, delivery_date,
+            lead_time_days, unit_cost, quantity_ordered, status)
+           VALUES (?,?,?,?,?,?,?,?,?,?)""",
+        rows,
+    )
+    print(f"Purchase orders inserted: {len(rows)} rows.")
+
+
+# ---------------------------------------------------------------------------
 # Drug alternatives — hardcoded (see notes below)
 # ---------------------------------------------------------------------------
 
@@ -347,17 +489,19 @@ def seed() -> None:
         # tables that reference them, and the view is created last because
         # it reads from the tables above.
         create_tables(conn)
+        insert_distributors(conn)
         insert_sites(conn)
         insert_drugs(conn)
         insert_inventory_snapshots(conn)
         fetch_drug_alternatives(conn)
+        seed_purchase_orders(conn)
         create_view(conn)
 
         # Nothing is saved to disk until commit(). If any step above fails,
         # we never reach this line.
         conn.commit()
         print(f"\nDatabase created: {DB_PATH}")
-        print("Tables: sites, drugs, inventory_snapshots, drug_alternatives")
+        print("Tables: distributors, sites, drugs, inventory_snapshots, drug_alternatives, purchase_orders")
         print("View:   v_inventory_dashboard")
     except Exception:
         conn.rollback()  # undo any half-finished inserts

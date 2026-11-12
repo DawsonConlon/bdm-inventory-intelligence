@@ -48,7 +48,8 @@ Files currently in the repo:
 - `requirements.txt` — Python dependencies
 - `.gitignore` — excludes `data/bdm.db`, `.DS_Store`, `__pycache__`
 - `data/seed.py` — database seed script (complete and working)
-- `app.py` — Streamlit UI (Piece 3 — complete, iteration 1 committed)
+- `app.py` — Streamlit UI (Pieces 3–5 — complete, tabs + procurement detail panel)
+- `data/seed.py` — now seeds 6 tables: distributors, sites, drugs, inventory_snapshots, drug_alternatives, purchase_orders (471 procurement rows)
 - `.streamlit/config.toml` — global theme: `#1F2123` background, `#2B2E31` sidebar, `#E6E7E8` text, `#F4A982` accent, `#90330B` shortage row highlight
 - `.claude/launch.json` — browser preview config for Claude Code desktop app
 
@@ -266,10 +267,9 @@ On first run, `app.py` auto-seeds the database if `data/bdm.db` is missing.
 
 ## Open Items for Next Session
 
-1. **Piece 4** — Geography rollup: consider adding a "full inventory" tab showing all 25 rows (not just criticals). Dawson said this "might change in the future".
-2. **Piece 5 (stretch)** — Demand forecast (14-day probabilistic with quantiles).
-3. **Piece 6 (stretch)** — Alternatives panel in the UI (show `drug_alternatives` data for each critical row).
-4. **Piece 7** — `writeup.md` and final polish (sources, simulated parts, data problems, what's next). README. One-command run final verification.
+1. **Piece 6 (stretch)** — Alternatives panel in the UI (show `drug_alternatives` data for each critical row).
+2. **Piece 7** — `writeup.md` and final polish (sources, simulated parts, data problems, what's next). README. One-command run final verification.
+3. **ML forecasting vision (Dawson)** — `purchase_orders` table is the foundation. Future models: lead-time prediction per drug-distributor pair, reorder-point optimization, demand forecast. Data is in place.
 
 ---
 

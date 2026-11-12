@@ -27,7 +27,23 @@ def load_data():
     conn.close()
     return df
 
+@st.cache_data
+def load_purchase_orders():
+    conn = sqlite3.connect(DB_PATH)
+    df = pd.read_sql_query("SELECT * FROM purchase_orders", conn)
+    conn.close()
+    return df
+
+@st.cache_data
+def load_distributors():
+    conn = sqlite3.connect(DB_PATH)
+    df = pd.read_sql_query("SELECT * FROM distributors", conn)
+    conn.close()
+    return df
+
 df = load_data()
+po_df = load_purchase_orders()
+dist_df = load_distributors()
 
 # ---------------------------------------------------------------------------
 # Sidebar — cascading geography filters (applied to both tabs)
@@ -58,7 +74,7 @@ if site != "All":
 
 critical = critical.sort_values("days_of_supply").reset_index(drop=True)
 
-# Apply same geography selections to full dataset for Tab 2
+# Apply same selections to full dataset for Tab 2
 full = df.copy()
 if region != "All":
     full = full[full["region"] == region]
@@ -93,7 +109,7 @@ st.divider()
 tab1, tab2 = st.tabs(["Critical Alerts", "Full Inventory"])
 
 # ---------------------------------------------------------------------------
-# Tab 1 — Critical Alerts
+# Tab 1 — Critical Alerts (with click-to-expand procurement detail)
 # ---------------------------------------------------------------------------
 with tab1:
     if critical.empty:
@@ -134,10 +150,62 @@ with tab1:
             return [f"background-color: {color}" if color else "" for _ in row]
 
         styled = display_df.style.apply(highlight_critical, axis=1)
-        st.dataframe(styled, use_container_width=True, hide_index=True)
+
+        st.caption("Click a row to view procurement history for that drug and site.")
+        event = st.dataframe(
+            styled,
+            use_container_width=True,
+            hide_index=True,
+            on_select="rerun",
+            selection_mode="single-row",
+        )
 
         if int(critical["shortage_active"].sum()) > 0:
             st.caption("Highlighted rows have an active drug shortage.")
+
+        # ---------------------------------------------------------------
+        # Procurement detail panel — shown when a row is selected
+        # ---------------------------------------------------------------
+        selected_rows = event.selection.rows
+        if selected_rows:
+            idx = selected_rows[0]
+            sel = critical.iloc[idx]
+            drug_id = sel["drug_id"]
+            site_id = sel["site_id"]
+
+            orders = po_df[
+                (po_df["drug_id"] == drug_id) & (po_df["site_id"] == site_id)
+            ].merge(
+                dist_df[["distributor_id", "distributor_name", "distributor_type"]],
+                on="distributor_id",
+                how="left",
+            ).sort_values("order_date", ascending=False)
+
+            st.divider()
+            st.subheader(f"Procurement — {sel['generic_name']} @ {sel['site_name']}")
+
+            delivered = orders[orders["status"] == "delivered"]
+            avg_lead = delivered["lead_time_days"].mean() if len(delivered) > 0 else 0
+            avg_cost = delivered["unit_cost"].mean() if len(delivered) > 0 else 0
+            total_orders = len(orders)
+
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Avg Lead Time (delivered)", f"{avg_lead:.1f} days")
+            m2.metric("Avg Unit Cost (delivered)", f"${avg_cost:.4f}")
+            m3.metric("Orders (6 months)", total_orders)
+
+            recent = orders.head(5)[[
+                "order_date", "distributor_name", "quantity_ordered",
+                "unit_cost", "lead_time_days", "status",
+            ]].rename(columns={
+                "order_date":       "Order Date",
+                "distributor_name": "Distributor",
+                "quantity_ordered": "Qty Ordered",
+                "unit_cost":        "Unit Cost ($)",
+                "lead_time_days":   "Lead (days)",
+                "status":           "Status",
+            })
+            st.dataframe(recent, hide_index=True, use_container_width=True)
 
 # ---------------------------------------------------------------------------
 # Tab 2 — Full Inventory
@@ -169,9 +237,9 @@ with tab2:
             "Daily Usage (7d)", "Weekly Usage (7d)", "Monthly Usage (30d)",
             "Days of Supply", "alert_level",
         ]].rename(columns={
-            "site_name": "Site",
-            "city": "City",
-            "province": "Province",
+            "site_name":   "Site",
+            "city":        "City",
+            "province":    "Province",
             "display_qty": "Qty on Hand",
             "alert_level": "Alert",
         }).reset_index(drop=True)

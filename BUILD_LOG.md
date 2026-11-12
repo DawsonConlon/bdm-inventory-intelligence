@@ -302,4 +302,22 @@ Researched 2026-11-11. Sources: WHO ATC/DDD Index, Canadian Journal of Hospital 
 
 ---
 
+---
+
+#### Piece 5 — Distributor + Procurement History
+
+**Data architecture additions:**
+- Added `distributors` table (3 rows): McKesson Canada (National), Cardinal Health Canada (National), Innomar Strategies (Specialty)
+- Added `purchase_orders` table (471 rows): 6 months of procurement history (May–Nov 2026) generated programmatically with fixed random seed 42 for reproducibility
+- Order frequency: weekly for high-volume drugs (Hydromorphone, Insulin Glargine); bi-weekly for others (Acetylcholine, Atorvastatin, Metoprolol)
+- Lead times vary by distributor: McKesson 2–5 days, Cardinal 3–7 days, Innomar 1–4 days (specialty/fastest)
+- Innomar is primary distributor for Acetylcholine (D1, shortage drug); Cardinal primary for Insulin Glargine; McKesson primary for all others with regional override for BC/NS sites to Cardinal
+- Unit costs vary by drug: Acetylcholine $48–62/vial, Hydromorphone $0.52–0.78/tablet, Atorvastatin $0.28–0.52/tablet, Insulin Glargine $0.052–0.068/IU, Metoprolol $0.18–0.32/tablet
+- Strategic purpose: procurement history is the foundation for future ML reorder-point and lead-time prediction models (Dawson's vision)
+
+**UI additions:**
+- Tab 1 (Critical Alerts): rows are now clickable via Streamlit `on_select="rerun"` row selection
+- Clicking a row shows a procurement detail panel below the table: avg lead time, avg unit cost, total orders (6 months), and a table of the 5 most recent orders with distributor name, qty, cost, lead days, and status
+- `load_purchase_orders()` and `load_distributors()` added as `@st.cache_data` functions
+
 <!-- Add new days below this line in the same format -->
