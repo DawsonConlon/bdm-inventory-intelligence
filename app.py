@@ -151,24 +151,22 @@ with tab1:
 
         styled = display_df.style.apply(highlight_critical, axis=1)
 
-        st.caption("Click a row to view procurement history for that drug and site.")
-        event = st.dataframe(
-            styled,
-            use_container_width=True,
-            hide_index=True,
-            on_select="rerun",
-            selection_mode="single-row",
-        )
+        st.dataframe(styled, use_container_width=True, hide_index=True)
 
         if int(critical["shortage_active"].sum()) > 0:
             st.caption("Highlighted rows have an active drug shortage.")
 
         # ---------------------------------------------------------------
-        # Procurement detail panel — shown when a row is selected
+        # Procurement detail panel — driven by a selectbox
         # ---------------------------------------------------------------
-        selected_rows = event.selection.rows
-        if selected_rows:
-            idx = selected_rows[0]
+        labels = [
+            f"{row['Drug']} — {row['Site']}"
+            for _, row in display_df.iterrows()
+        ]
+        choice = st.selectbox("View procurement history for:", ["— select a drug —"] + labels)
+
+        if choice != "— select a drug —":
+            idx = labels.index(choice)
             sel = critical.iloc[idx]
             drug_id = sel["drug_id"]
             site_id = sel["site_id"]
