@@ -186,8 +186,8 @@ Seed script is working. `streamlit run app.py` will auto-call `data/seed.py` on 
 - Created `.claude/launch.json` for browser preview via `python3 -m streamlit run app.py`
 
 #### UI Iteration 1 — Styling Pass
-- Added `.streamlit/config.toml`: dark modern grey theme (`backgroundColor: #1E1E2E`, `secondaryBackgroundColor: #2A2A3E`, `textColor: #E8E8F0`, `primaryColor: #7C83FD`)
-- Shortage row highlight updated: `#FFCCCC` (pink) → `#FFD4A3` (pastel orange) → `#90330B` (deep burnt orange, final — Dawson's choice)
+- Added `.streamlit/config.toml`: final theme — `backgroundColor: #1F2123`, `secondaryBackgroundColor: #2B2E31`, `textColor: #E6E7E8`, `primaryColor: #F4A982` (warm peach accent)
+- Shortage row highlight finalised to `#90330B` (deep burnt orange — Dawson's choice)
 
 #### Piece 3 Complete — Verified in browser
 Unfiltered view confirmed:
