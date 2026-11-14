@@ -250,9 +250,9 @@ with tab2:
             level = alert_levels[row.name]
             shortage = shortage_flags_full[row.name]
             if level == "critical" and shortage == 1:
-                color = "#90330B"
+                color = "#8B0C0C"
             elif level == "critical":
-                color = "#5C1A1A"
+                color = "#0980DB78"
             elif level == "concern":
                 color = "#4A3800"
             elif level == "untracked":
