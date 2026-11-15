@@ -267,7 +267,7 @@ ORDER  BY i.days_of_supply ASC;
 
 ---
 
-## Current State — End of Piece 5 (2026-11-11)
+## Current State — End of Day 3 (2026-11-14)
 
 **Complete:**
 - `data/seed.py` — idempotent, runs cleanly, all 6 tables populated, view created, 471 POs seeded
@@ -282,24 +282,31 @@ python3 -m streamlit run app.py
 ```
 On first run, `app.py` auto-seeds the database if `data/bdm.db` is missing. Use `python3 -m streamlit` not `streamlit` directly — `streamlit` may not be on PATH depending on environment.
 
-**Verified in browser (unfiltered, as of Piece 5):**
+**Verified in browser (unfiltered, as of Day 3):**
 - Tab 1 (Critical Alerts): 6 rows, sorted by days_of_supply ascending
 - Tiles: Critical Items 6 | Shortage Flags 2 | Sites Affected 4 | Provinces Affected 4
-- Acetylcholine Chloride rows show "[Tier 3]" badge and burnt orange (#90330B) highlight (Dawson's choice)
+- Acetylcholine Chloride rows show "[Tier 3]" badge and maroon (#8B0C0C) highlight
 - Geography sidebar filters cascade correctly
 - "View procurement history for:" selectbox — pick any drug/site, shows avg lead time, avg unit cost, 5 most recent POs
 - Tab 2 (Full Inventory): all 25 rows, same geography filters, color-coded by alert level
 - Theme: #1F2123 background, #E6E7E8 text, #F4A982 warm peach accent (Dawson's final values)
 
-**Current git branch:** `dev`  
-**Commits ahead of main:** several (Pieces 3–5 not yet merged to main)
+**Current git branch:** `dev` — pushed to GitHub on 2026-11-14 (Dawson)  
+**Main branch:** not yet updated — merge dev → main before submission
+
+**Current Full Inventory colors (Dawson's choices, as of 2026-11-14):**
+- Critical + shortage: `#8B0C0C` (deep maroon)
+- Critical (no shortage): `#0980DB78` (semi-transparent blue — under review, may change)
+- Concern: `#4A3800` (dark amber)
+- Untracked/negative: `#2A2A2A` (grey)
 
 ## Open Items for Next Session
 
-1. **Piece 6 (stretch)** — Alternatives panel in the UI (show `drug_alternatives` data for each critical row — which substitutes are available, which are under their own shortage).
-2. **Piece 7 (required)** — `writeup.md` explaining sources, what was simulated, data problems, and what's next. README. Final one-command run verification. This is a required deliverable per the brief.
-3. **Merge dev → main** — push dev branch and open a PR, or merge directly. The challenge reviewer will likely clone main.
-4. **ML forecasting vision (Dawson)** — `purchase_orders` table is the foundation. Future work: lead-time prediction per drug-distributor pair, reorder-point optimization, demand forecast. Data is in place; not in scope for this challenge.
+1. **Full Inventory legend** — replace the text caption with a proper visual legend: colored swatches + plain-language operational meaning per tier. Agreed in Day 3. Blocked on Dawson confirming final color for critical (no shortage) — `#0980DB78` intentional or still changing?
+2. **Piece 6 (stretch)** — Alternatives panel in the UI (show `drug_alternatives` data for each critical row — which substitutes are available, which are under their own shortage).
+3. **Piece 7 (required)** — `writeup.md` explaining sources, what was simulated, data problems, and what's next. README. Final one-command run verification. Required deliverable per the brief.
+4. **Merge dev → main** — the challenge reviewer will clone main. Do not merge until Piece 7 is done.
+5. **ML forecasting vision (Dawson)** — `purchase_orders` table is the foundation. Future work: lead-time prediction, reorder-point optimization, demand forecast. Not in scope for this challenge.
 
 ---
 

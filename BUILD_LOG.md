@@ -328,4 +328,33 @@ Researched 2026-11-11. Sources: WHO ATC/DDD Index, Canadian Journal of Hospital 
 - Streamlit 2.x deprecated `use_container_width=True` in favour of `width="stretch"`
 - Replaced all 3 occurrences in `app.py`
 
+---
+
+### Day 3 — 2026-11-14
+
+#### Planned
+- Push dev branch to GitHub
+- Review all features against BDM brief requirements
+- Plan Full Inventory legend and highlight clarification
+
+#### Accomplished
+- Pushed dev branch to GitHub (Dawson — first remote push)
+- Reviewed full feature checklist against brief: all 5 must-haves confirmed complete, shortage signal partially complete, demand forecast not started, `writeup.md` not started
+- Dawson updated Full Inventory alert colors in `app.py`:
+  - Critical + shortage: `#8B0C0C` (deep maroon)
+  - Critical (no shortage): `#0980DB78` (semi-transparent blue — under review)
+  - Concern: `#4A3800` unchanged
+  - Untracked: `#2A2A2A` unchanged
+- Dawson added second legend line to Tab 1: "Non highlighted rows have 7 days or less of supplies."
+- Identified that the existing caption in Tab 2 is stale (text does not match current colors) and that the legend needs plain-language descriptions of what each alert level means operationally, not just color names
+- Plan agreed: replace caption with a proper visual legend (colored swatches + plain-language meaning per tier)
+
+#### Decisions Made
+- Legend redesign approach agreed: colored swatches + plain-language operational meaning per tier (not just color names)
+- Full Inventory colors still being finalized by Dawson — `#0980DB78` for critical (no shortage) is under review
+
+#### Open Questions
+- Final color for critical (no shortage) rows — `#0980DB78` intentional or still experimenting?
+- Legend implementation deferred to next session pending Dawson's color confirmation
+
 <!-- Add new days below this line in the same format -->
