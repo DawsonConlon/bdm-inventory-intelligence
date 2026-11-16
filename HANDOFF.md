@@ -304,7 +304,6 @@ On first run, `app.py` auto-seeds the database if `data/bdm.db` is missing. Use 
 ## Important Notes
 
 - The user's name is Dawson. Refer to design decisions as coming from Dawson where credited.
-- The challenge contact is Trevor Tessier at BDM Healthware (Saskatoon, SK).
 - Do not use emojis in responses.
 - Keep responses concise and direct.
 - Always ask Dawson rather than making assumptions — use the grill-me skill before writing code or making design choices.
