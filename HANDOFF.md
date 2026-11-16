@@ -48,8 +48,9 @@ Files currently in the repo:
 - `requirements.txt` — Python dependencies
 - `.gitignore` — excludes `data/bdm.db`, `.DS_Store`, `__pycache__`
 - `data/seed.py` — database seed script (complete and working)
-- `app.py` — Streamlit UI (Piece 3 — complete, iteration 1 committed)
-- `.streamlit/config.toml` — global theme: dark grey background, near-white text, burnt orange shortage highlights
+- `app.py` — Streamlit UI (Pieces 3–5 — complete, tabs + procurement detail panel)
+- `data/seed.py` — seeds 5 tables: distributors, sites, drugs, inventory_snapshots, purchase_orders (471 procurement rows)
+- `.streamlit/config.toml` — global theme: `#1F2123` background, `#2B2E31` sidebar, `#E6E7E8` text, `#F4A982` accent, `#90330B` shortage row highlight
 - `.claude/launch.json` — browser preview config for Claude Code desktop app
 
 ---
@@ -84,7 +85,7 @@ bdm-inventory-intelligence/
 
 ---
 
-## Database Design — 4 Tables
+## Database Design — 6 Tables
 
 ### Table 1: `sites` (simulated)
 
@@ -170,6 +171,30 @@ Alert levels: `critical` (≤7 days), `concern` (8–14 days), `none` (>14 days)
 
 Key columns: `alt_id`, `primary_drug_id` (FK → drugs), `alt_generic_name`, `alt_din`, `alt_atc_code`, `alt_shortage_active`, `alt_shortage_tier`, `alt_qty_on_hand_all_sites`, `alt_availability`
 
+### Table 5: `distributors`
+
+3 rows. Real Canadian hospital drug distributors.
+
+| distributor_id | distributor_name | distributor_type | contact_email |
+|---|---|---|---|
+| DIST01 | McKesson Canada | National | hospital.orders@mckesson.ca |
+| DIST02 | Cardinal Health Canada | National | hospital.supply@cardinalhealth.ca |
+| DIST03 | Innomar Strategies | Specialty | specialty@innomar.com |
+
+### Table 6: `purchase_orders`
+
+471 rows. 6 months of procurement history (May 12 – Nov 11, 2026). Generated programmatically with `random.Random(42)` fixed seed — reproducible on every run.
+
+Key columns: `order_id`, `site_id`, `drug_id`, `distributor_id`, `order_date`, `delivery_date`, `lead_time_days`, `unit_cost`, `quantity_ordered`, `status` (delivered / in_transit / pending)
+
+Distributor assignment logic:
+- Innomar (DIST03) is primary for Acetylcholine (D1 — shortage drug); fastest lead 1–4 days
+- Cardinal Health (DIST02) is primary for Insulin Glargine (D4); also preferred at S03/S05 for non-D1 drugs
+- McKesson (DIST01) is primary for all other drugs/sites
+- 80% orders use the primary distributor, 20% secondary
+
+Strategic purpose: this table is the foundation for future ML lead-time prediction and reorder-point optimization models (Dawson's vision).
+
 | primary_drug_id | alt_generic_name | alt_din | shortage_active | availability | Note |
 |---|---|---|---|---|---|
 | D1 | Carbachol | 00042544 | Yes (Tier 2) | Limited | Makes MIOCHOL-E situation actionable — both primary and first alternative are under shortage |
@@ -242,34 +267,55 @@ ORDER  BY i.days_of_supply ASC;
 
 ---
 
-## Current State — End of Piece 3
+## Current State — End of Day 4 (2026-11-15)
 
 **Complete:**
-- `data/seed.py` — idempotent, runs cleanly, all 4 tables populated, view created
+- `data/seed.py` — idempotent, runs cleanly, all 6 tables populated, view created, 471 POs seeded
 - `requirements.txt`
 - `.gitignore`
 - All data designed, approved, and seeded
-- `app.py` — Streamlit UI, verified working in browser
+- `app.py` — Streamlit UI, Pieces 3–5 complete, verified working in browser
+- Sidebar legend with colored dot swatches and plain-language operational descriptions
+- Column headers cleaned up (no time window suffixes)
+- Stale Tab 2 caption removed
 
 **Run command:**
 ```
-streamlit run app.py
+python3 -m streamlit run app.py
 ```
-On first run, `app.py` auto-seeds the database if `data/bdm.db` is missing.
+On first run, `app.py` auto-seeds the database if `data/bdm.db` is missing. Use `python3 -m streamlit` not `streamlit` directly — `streamlit` may not be on PATH depending on environment.
 
-**Verified in browser (unfiltered):**
-- 6 critical rows, sorted by days_of_supply ascending (4.0 → 5.0 → 5.0 → 6.0 → 7.0 → 7.0)
+**Verified in browser (unfiltered, as of Day 6):**
+- Tab 1 (Critical Alerts): 6 rows, sorted by days_of_supply ascending
 - Tiles: Critical Items 6 | Shortage Flags 2 | Sites Affected 4 | Provinces Affected 4
-- Acetylcholine Chloride rows show "[Tier 3]" badge and burnt orange (#90330B) highlight (Dawson's choice)
-- Geography sidebar filters cascade correctly
-- Theme: dark modern grey (#1E1E2E background, #E8E8F0 text)
+- Acetylcholine Chloride rows show "[Tier 3]" badge and maroon (#8B0C0C) highlight
+- Non-shortage critical rows highlighted orange (#E96A10C3) — bug fixed Day 5
+- Geography sidebar filters cascade correctly and include all sites (Calgary now visible) — bug fixed Day 6
+- Sidebar legend: Untracked dot now mid-grey (#5A5A5A), Healthy dot matches sidebar background (#2B2E31) — bug fixed Day 6
+- "View procurement history for:" selectbox — pick any drug/site, shows avg lead time, avg unit cost, 5 most recent POs
+- Procurement table columns: Order Date | Distributor | Qty on Hand | Days Since Last Order | Units Used | Qty Ordered | Unit Cost ($) | Days to Delivery | Status
+- Days to Delivery shows "—" for in_transit orders; oldest visible row shows "—" for Days Since Last Order and Units Used
+- Tab 2 (Full Inventory): all 25 rows, same geography filters, color-coded by alert level; untracked rows #3A3A3A
+- Theme: #1F2123 background, #E6E7E8 text, #F4A982 warm peach accent (Dawson's final values)
+
+**Current git branch:** `dev` — pushed to GitHub (all Day 4 work committed)
+**Main branch:** not yet updated — merge dev → main before submission
+
+**Final Full Inventory colors (Dawson's confirmed choices, as of 2026-11-15):**
+- Critical + shortage: `#8B0C0C` (deep maroon)
+- Critical (no shortage): `#E96A10C3` (orange)
+- Concern: `#4A3800` (dark amber)
+- Untracked/negative: `#2A2A2A` (grey)
+- Healthy: no color (default background)
 
 ## Open Items for Next Session
 
-1. **Piece 4** — Geography rollup: consider adding a "full inventory" tab showing all 25 rows (not just criticals). Dawson said this "might change in the future".
-2. **Piece 5 (stretch)** — Demand forecast (14-day probabilistic with quantiles).
-3. **Piece 6 (stretch)** — Alternatives panel in the UI (show `drug_alternatives` data for each critical row).
-4. **Piece 7** — `writeup.md` and final polish (sources, simulated parts, data problems, what's next). README. One-command run final verification.
+### Remaining deliverables
+
+1. **Piece 6 (descoped)** — Drug alternatives panel removed from submission scope (Dawson, 2026-11-16). `drug_alternatives` table and all related seed code deleted. ATC codes remain on the `drugs` table to enable this feature in a future version. The concept: show whether substitute drugs are themselves under shortage, turning the shortage tier into actionable decision support.
+2. **Piece 7 (required)** — `writeup.md` explaining sources, what was simulated, data problems, and what's next. README. Final one-command run verification. Required deliverable per the brief.
+3. **Merge dev → main** — the challenge reviewer will clone main. Do not merge until Piece 7 is done.
+4. **ML forecasting vision (Dawson)** — `purchase_orders` table is the foundation. Future work: lead-time prediction, reorder-point optimization, demand forecast. Not in scope for this challenge.
 
 ---
 

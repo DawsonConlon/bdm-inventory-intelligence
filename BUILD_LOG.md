@@ -186,8 +186,8 @@ Seed script is working. `streamlit run app.py` will auto-call `data/seed.py` on 
 - Created `.claude/launch.json` for browser preview via `python3 -m streamlit run app.py`
 
 #### UI Iteration 1 — Styling Pass
-- Added `.streamlit/config.toml`: dark modern grey theme (`backgroundColor: #1E1E2E`, `secondaryBackgroundColor: #2A2A3E`, `textColor: #E8E8F0`, `primaryColor: #7C83FD`)
-- Shortage row highlight updated: `#FFCCCC` (pink) → `#FFD4A3` (pastel orange) → `#90330B` (deep burnt orange, final — Dawson's choice)
+- Added `.streamlit/config.toml`: final theme — `backgroundColor: #1F2123`, `secondaryBackgroundColor: #2B2E31`, `textColor: #E6E7E8`, `primaryColor: #F4A982` (warm peach accent)
+- Shortage row highlight finalised to `#90330B` (deep burnt orange — Dawson's choice)
 
 #### Piece 3 Complete — Verified in browser
 Unfiltered view confirmed:
@@ -301,5 +301,174 @@ Researched 2026-11-11. Sources: WHO ATC/DDD Index, Canadian Journal of Hospital 
 - Canadian hospital diabetes/insulin utilization (CJHT): https://www.canjhealthtechnol.ca/index.php/cjht/article/download/AU0001/3545
 
 ---
+
+---
+
+#### Piece 5 — Distributor + Procurement History
+
+**Data architecture additions:**
+- Added `distributors` table (3 rows): McKesson Canada (National), Cardinal Health Canada (National), Innomar Strategies (Specialty)
+- Added `purchase_orders` table (471 rows): 6 months of procurement history (May–Nov 2026) generated programmatically with fixed random seed 42 for reproducibility
+- Order frequency: weekly for high-volume drugs (Hydromorphone, Insulin Glargine); bi-weekly for others (Acetylcholine, Atorvastatin, Metoprolol)
+- Lead times vary by distributor: McKesson 2–5 days, Cardinal 3–7 days, Innomar 1–4 days (specialty/fastest)
+- Innomar is primary distributor for Acetylcholine (D1, shortage drug); Cardinal primary for Insulin Glargine; McKesson primary for all others with regional override for BC/NS sites to Cardinal
+- Unit costs vary by drug: Acetylcholine $48–62/vial, Hydromorphone $0.52–0.78/tablet, Atorvastatin $0.28–0.52/tablet, Insulin Glargine $0.052–0.068/IU, Metoprolol $0.18–0.32/tablet
+- Strategic purpose: procurement history is the foundation for future ML reorder-point and lead-time prediction models (Dawson's vision)
+
+**UI additions:**
+- Tab 1 (Critical Alerts): "View procurement history for:" selectbox dropdown below the table — pick any drug/site combo, procurement panel appears below
+- Procurement panel shows: avg lead time, avg unit cost (delivered orders only), total orders (6 months), and 5 most recent orders with distributor name, qty, cost, lead days, and status
+- `load_purchase_orders()` and `load_distributors()` added as `@st.cache_data` functions
+
+**UX fix (same session):**
+- Initial implementation used Streamlit `on_select="rerun"` row selection which required clicking a small checkbox at the far left of each row — not intuitive
+- Replaced with a labeled `st.selectbox` below the table (Dawson flagged the issue)
+
+**Deprecation fix (same session):**
+- Streamlit 2.x deprecated `use_container_width=True` in favour of `width="stretch"`
+- Replaced all 3 occurrences in `app.py`
+
+---
+
+### Day 3 — 2026-11-14
+
+#### Planned
+- Push dev branch to GitHub
+- Review all features against BDM brief requirements
+- Plan Full Inventory legend and highlight clarification
+
+#### Accomplished
+- Pushed dev branch to GitHub (Dawson — first remote push)
+- Reviewed full feature checklist against brief: all 5 must-haves confirmed complete, shortage signal partially complete, demand forecast not started, `writeup.md` not started
+- Dawson updated Full Inventory alert colors in `app.py`:
+  - Critical + shortage: `#8B0C0C` (deep maroon)
+  - Critical (no shortage): `#0980DB78` (semi-transparent blue — under review)
+  - Concern: `#4A3800` unchanged
+  - Untracked: `#2A2A2A` unchanged
+- Dawson added second legend line to Tab 1: "Non highlighted rows have 7 days or less of supplies."
+- Identified that the existing caption in Tab 2 is stale (text does not match current colors) and that the legend needs plain-language descriptions of what each alert level means operationally, not just color names
+- Plan agreed: replace caption with a proper visual legend (colored swatches + plain-language meaning per tier)
+
+#### Decisions Made
+- Legend redesign approach agreed: colored swatches + plain-language operational meaning per tier (not just color names)
+- Full Inventory colors still being finalized by Dawson — `#0980DB78` for critical (no shortage) is under review
+
+#### Open Questions
+- Final color for critical (no shortage) rows — `#0980DB78` intentional or still experimenting?
+- Legend implementation deferred to next session pending Dawson's color confirmation
+
+---
+
+### Day 4 — 2026-11-15
+
+#### Planned
+- Finalize Full Inventory highlight colors
+- Implement sidebar legend with colored swatches and plain-language descriptions
+- Clean up column headers
+- Remove stale Tab 2 caption
+
+#### Accomplished
+- **Color finalization (Dawson):**
+  - Critical + shortage: `#8B0C0C` (deep maroon) — confirmed final
+  - Critical (no shortage): changed from `#0980DB78` (semi-transparent blue) to `#E96A10C3` (orange) — Dawson flagged blue was visually indistinguishable from "healthy" in a clinical context
+  - Concern: `#4A3800` unchanged
+  - Untracked/negative: `#2A2A2A` unchanged
+- **Sidebar legend implemented** — replaced the stale text caption in Tab 2 with a sidebar legend containing colored dot swatches and plain-language operational descriptions for each alert tier (Critical + shortage, Critical, Concern, Untracked/N/A, Healthy)
+- **Column headers cleaned up** — removed time window suffixes: `Daily Usage (7d)` → `Daily Usage`, `Weekly Usage (7d)` → `Weekly Usage`, `Monthly Usage (30d)` → `Monthly Usage` across both tabs (8 occurrences)
+- **Stale Tab 2 caption removed** — the old `st.caption("Critical + shortage: dark orange | ...")` line was inaccurate and superseded by the sidebar legend
+- All changes committed and pushed to dev branch
+
+#### Decisions Made
+- Orange (`#E96A10C3`) for critical rows without a shortage — better clinical intuition than blue
+- Sidebar legend placement (below geography filters) — Dawson's preferred location
+
+#### Open Questions
+- None — Day 4 UI work complete
+
+---
+
+### Day 5 — 2026-11-15 (continued)
+
+#### Planned
+- Fix Tab 1 critical row highlight: non-shortage critical rows should be orange, matching the legend
+
+#### Accomplished
+- **Tab 1 highlight bug fixed:** `highlight_critical()` was only applying maroon (`#8B0C0C`) to shortage rows and no color to all other critical rows. Updated the else branch from `""` to `"#E96A10C3"` so non-shortage critical rows now render orange, matching the sidebar legend and Tab 2 behavior.
+
+#### Decisions Made
+- No new decisions — fix aligns Tab 1 with colors already confirmed by Dawson on Day 4
+
+#### Open Questions
+- None
+
+---
+
+### Day 6 — 2026-11-16
+
+#### Planned
+- Fix geography filter missing Calgary (Bug 1)
+- Fix Healthy / Untracked legend colors indistinguishable (Bug 2)
+
+#### Accomplished
+
+**Bug 1 — Geography filter missing Calgary — Fixed:**
+Root cause: the sidebar cascading dropdowns (Region → Province → City → Site) were built by filtering the `critical` DataFrame at each step. Calgary/S02 has no critical items, so it never entered the option lists — meaning Tab 2 (Full Inventory) also could not be filtered to Calgary.
+Fix: introduced a separate `filter_base` DataFrame (copy of full `df`) to build all four dropdown option lists. The cascade narrows `filter_base` at each level so the options still update contextually, but all 25 rows are eligible. The user's selections are then applied independently to both `critical` and `full` afterward. Any site with zero critical items is now visible in the filters.
+
+**Bug 2 — Healthy / Untracked legend colors — Fixed:**
+Root cause: both legend dots were near-black on a near-black sidebar background (`#2A2A2A` / `#3a3a3a`), visually indistinguishable.
+Fix:
+- Untracked/N/A legend dot: `#2A2A2A` → `#5A5A5A` with `#888` border (clearly visible mid-grey — signals "data problem")
+- Healthy legend dot: `#3a3a3a` → `#2B2E31` with `#444` border (matches sidebar background — signals "nothing notable")
+- Tab 2 untracked row highlight: `#2A2A2A` → `#3A3A3A` (more distinguishable from the `#1F2123` default row background)
+
+#### Decisions Made
+- Filter options built from full dataset (`df`), not critical subset — Dawson confirmed approach before implementation
+- Untracked color in legend and table made visibly grey; Healthy blends into sidebar background (Dawson's review pending commit)
+
+#### Open Questions
+- None — both bugs resolved
+
+---
+
+#### Feature — Procurement History: Qty on Hand, Days Since Last Order, Units Used
+
+**Data architecture:**
+- Added `qty_on_hand_at_order INTEGER` column to `purchase_orders` table in `data/seed.py`
+- Added `_SNAPSHOT_QTY` lookup dict (mirrors `inventory_snapshots` qty values; `None` for untracked/negative sites D1/S05 and D2/S04)
+- Backfill logic: forward walk from opening stock of `avg_daily × order_freq × 2` (2 order cycles). For each order, record current stock, then advance: `running_qty = running_qty + qty_ordered - days_to_next_order × avg_daily`. Forward walk chosen over backwards walk because critically low snapshot items (e.g. D1/S01 at 32 vials) caused the backwards walk to immediately go negative and clamp to zero.
+- 471 rows re-seeded cleanly. Zero counts verified: none.
+
+**UI additions (Tab 1 — procurement panel):**
+- `Qty on Hand` — stock at time of order, formatted with commas; "—" for untracked/negative sites
+- `Days Since Last Order` — integer days between this order and the prior one; "—" for the oldest visible row
+- `Units Used` — `qty_on_hand[prev] + qty_ordered[prev] − qty_on_hand[current]`, formatted with commas; "—" for oldest visible row or untracked sites
+- `Qty Ordered` — now formatted with commas (was plain integer)
+- `Days to Delivery` — renamed from "Lead (days)"; shows "—" for in_transit orders since delivery has not occurred yet
+
+**Column order in final table:**
+Order Date | Distributor | Qty on Hand | Days Since Last Order | Units Used | Qty Ordered | Unit Cost ($) | Days to Delivery | Status
+
+**Decisions made:**
+- Forward walk over backwards walk — Dawson confirmed after seeing backwards walk produce all-zero results for critically low items
+- "Days to Delivery" rename and "—" for in_transit — Dawson's direction
+- Column names approved by Dawson before implementation
+
+**Pushed to GitHub dev branch by Dawson — 2026-11-16**
+
+---
+
+#### Decision — Remove `drug_alternatives` table (2026-11-16)
+
+Dawson decided to descope the drug_alternatives feature from the submission version of the tool. The table was designed, seeded with 10 real Canadian DINs, and documented, but was never wired into the UI. All `drug_alternatives` code has been removed from `data/seed.py`:
+- `DROP TABLE IF EXISTS drug_alternatives` removed from schema
+- `CREATE TABLE drug_alternatives` block removed
+- `_ALTERNATIVES` data list removed
+- `fetch_drug_alternatives()` function removed
+- Call to `fetch_drug_alternatives(conn)` removed from `seed()`
+
+The database now seeds 5 tables: distributors, sites, drugs, inventory_snapshots, purchase_orders.
+
+The underlying idea remains valid and Dawson intends to implement it in a future version: showing whether substitute drugs are themselves under shortage or supply constraint turns the shortage tier from a static label into actionable decision support. The ATC codes are still stored on the `drugs` table, which will enable this lookup when the feature is revisited.
 
 <!-- Add new days below this line in the same format -->
