@@ -52,23 +52,35 @@ st.sidebar.title("Geography")
 
 critical = df[df["alert_level"] == "critical"].copy()
 
-regions = ["All"] + sorted(critical["region"].dropna().unique().tolist())
+# Build filter options from the full dataset so every site appears,
+# not just those with critical items. Each level narrows the next.
+filter_base = df.copy()
+
+regions = ["All"] + sorted(filter_base["region"].dropna().unique().tolist())
 region = st.sidebar.selectbox("Region", regions)
 if region != "All":
-    critical = critical[critical["region"] == region]
+    filter_base = filter_base[filter_base["region"] == region]
 
-provinces = ["All"] + sorted(critical["province"].dropna().unique().tolist())
+provinces = ["All"] + sorted(filter_base["province"].dropna().unique().tolist())
 province = st.sidebar.selectbox("Province", provinces)
 if province != "All":
-    critical = critical[critical["province"] == province]
+    filter_base = filter_base[filter_base["province"] == province]
 
-cities = ["All"] + sorted(critical["city"].dropna().unique().tolist())
+cities = ["All"] + sorted(filter_base["city"].dropna().unique().tolist())
 city = st.sidebar.selectbox("City", cities)
 if city != "All":
-    critical = critical[critical["city"] == city]
+    filter_base = filter_base[filter_base["city"] == city]
 
-site_names = ["All"] + sorted(critical["site_name"].dropna().unique().tolist())
+site_names = ["All"] + sorted(filter_base["site_name"].dropna().unique().tolist())
 site = st.sidebar.selectbox("Site", site_names)
+
+# Apply selections to the critical subset
+if region != "All":
+    critical = critical[critical["region"] == region]
+if province != "All":
+    critical = critical[critical["province"] == province]
+if city != "All":
+    critical = critical[critical["city"] == city]
 if site != "All":
     critical = critical[critical["site_name"] == site]
 
