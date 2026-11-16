@@ -85,40 +85,43 @@ Four relational tables:
 ### Human-Driven Decisions
 
 **Decision: Drop the Medicaid SDUD dataset and build a synthetic usage dataset instead**
-The US Medicaid State Drug Utilization Data was initially identified as a usage source, but after reviewing it the data was flagged as state-level quarterly aggregates — not granular enough to calculate per-site, per-drug daily usage. The decision was made to simulate usage rates instead, grounded in researched real-world Canadian hospital consumption baselines for the five chosen drugs. This is explicitly permitted by the challenge brief ("simulate anything that isn't published").
+Dawson reviewed the US Medicaid State Drug Utilization Data and flagged it as state-level quarterly aggregates — not granular enough to calculate per-site, per-drug daily usage. Dawson made the call to simulate usage rates instead, grounded in researched real-world Canadian hospital consumption baselines. This is explicitly permitted by the challenge brief ("simulate anything that isn't published").
 
 **Decision: SQLite over PostgreSQL**
-SQLite was chosen as the database engine to satisfy the one-command run requirement. PostgreSQL would require a running server before `streamlit run app.py` could work, adding setup burden for the reviewer. SQLite is a single file created by the seed script on first run — the entire stack boots in one command with no additional configuration.
+Dawson chose SQLite as the database engine to satisfy the one-command run requirement. PostgreSQL would require a running server before `streamlit run app.py` could work, adding setup burden for the reviewer. SQLite is a single file created by the seed script on first run — the entire stack boots in one command with no additional configuration.
 
 **Decision: Streamlit as the UI framework**
-Streamlit was confirmed as the UI framework over alternatives (notebook, plain HTML). It satisfies the brief's requirement for a working UI, deploys to Streamlit Cloud with no infrastructure, and auto-reseeds the database on first launch.
+Dawson chose Streamlit as the UI framework over alternatives (notebook, plain HTML). It satisfies the brief's requirement for a working UI, deploys to Streamlit Cloud with no infrastructure, and auto-reseeds the database on first launch.
 
 **Decision: MIOCHOL-E (Acetylcholine Chloride) as the Tier 3 shortage drug**
-Swapped from Stannous MAA Kit to MIOCHOL-E (DIN 02133326) because MIOCHOL-E has an ATC code (S01EB) enabling a real alternatives lookup, and its active shortage runs to 2027-02-05 — a longer, more realistic window for a submission tool.
+Dawson chose MIOCHOL-E (DIN 02133326), swapping out Stannous MAA Kit. MIOCHOL-E has an ATC code (S01EB) enabling a real alternatives lookup, and its active shortage runs to 2027-02-05 — a longer, more realistic window for a submission tool.
 
 **Decision: Manual shortage data lookup instead of API**
-Health Product Shortages Canada blocks automated requests without authentication. Rather than registering an account or scraping, shortage flags were sourced manually from healthproductshortages.ca on 2026-11-11 and hardcoded with a lookup date. Future plan: replace with live API data once authenticated access is established.
+Health Product Shortages Canada blocks automated requests without authentication. Dawson decided to source shortage flags manually from healthproductshortages.ca on 2026-11-11 and hardcode them with a lookup date. Future plan: replace with live API data once authenticated access is established.
 
 **Decision: Forward walk for purchase order qty_on_hand**
-A backwards walk (working back from the snapshot qty) was implemented first but produced all-zero qty_on_hand values for critically low items like D1/S01 (32 vials). A forward walk was chosen instead — opening stock is set to `avg_daily × order_freq × 2` and each order's qty is derived by advancing forward through time. This keeps values internally consistent and non-zero.
+After seeing the backwards walk produce all-zero qty_on_hand values for critically low items like D1/S01 (32 vials), Dawson confirmed the switch to a forward walk. Opening stock is set to `avg_daily × order_freq × 2` and each order's qty is derived by advancing forward through time, keeping values internally consistent and non-zero.
 
 **Decision: Orange for critical rows without an active shortage**
-The initial color for critical rows with no shortage was semi-transparent blue (`#0980DB78`). This was changed to orange (`#E96A10C3`) after the blue was flagged as visually indistinguishable from healthy rows in a clinical context. Maroon (`#8B0C0C`) was retained for critical rows with an active shortage.
+Dawson flagged that the initial color for critical-no-shortage rows — semi-transparent blue (`#0980DB78`) — was visually indistinguishable from healthy rows in a clinical context. Dawson chose orange (`#E96A10C3`) as the replacement. Maroon (`#8B0C0C`) was retained for critical rows with an active shortage.
+
+**Decision: Theme colors**
+Dawson chose the final dark theme: `#1F2123` page background, `#2B2E31` sidebar background, `#E6E7E8` text, `#F4A982` warm peach accent. These values are locked in `.streamlit/config.toml`.
 
 **Decision: Geography filter built from full dataset, not critical subset**
-The cascading geography dropdowns (Region → Province → City → Site) were originally built by filtering the critical rows, which caused sites with no critical items (e.g. Calgary) to disappear from the picker. The fix was to build dropdown options from the full inventory dataset so every site always appears, regardless of its alert state.
+Dawson confirmed the approach of building the cascading geography dropdown options from the full inventory dataset rather than the critical subset. This fixed the Calgary disappearing-from-picker bug and ensures every site is always selectable regardless of its alert state.
 
 **Decision: Remove `drug_alternatives` table from submission scope**
-The drug_alternatives table was fully designed and seeded with 10 real Canadian DINs, but was never wired into the UI. It was descoped from the submission to reduce complexity. The ATC codes remain on the `drugs` table to enable the feature in a future version. The concept — showing whether substitute drugs are themselves under shortage — remains valid and is noted as a future plan.
+Dawson decided to descope the drug_alternatives feature. The table was fully designed and seeded with 10 real Canadian DINs, but was never wired into the UI. Dawson's reasoning: too much complexity for the submission. The ATC codes remain on the `drugs` table to enable the feature in a future version.
 
 **Decision: Dedicated Shortage column with plain text, no new colors**
-Rather than embedding the shortage tier in the drug name as a badge (e.g. `Acetylcholine Chloride [Tier 3]`), a dedicated "Shortage" column was added immediately after "Drug" in both tabs. The column shows plain text (Tier 1, Tier 2, Tier 3, or None) and inherits the existing row color — no new colors introduced. This keeps the color system clean and the tier information easy to scan.
+Dawson directed that the shortage tier be moved out of the drug name (where it appeared as a badge) and into a dedicated column. Dawson also specified no new colors — the column shows plain text (Tier 1, Tier 2, Tier 3, or None) and inherits the existing row color. Keeps the color system clean and the tier information easy to scan.
 
 **Decision: Metoprolol upgraded to Tier 2 active shortage**
-Metoprolol (D5) was updated from no shortage to an active Tier 2 (Serious) shortage with a start date of 2026-09-15 and an estimated end of 2027-03-01. This added a third shortage flag to the tool, making the Shortage Flags tile count 3 and demonstrating Tier 2 behavior alongside the existing Tier 3 Acetylcholine flags.
+Dawson chose to upgrade Metoprolol (D5) to an active Tier 2 (Serious) shortage, adding a third shortage flag to the tool and demonstrating Tier 2 behavior alongside the Tier 3 Acetylcholine flags.
 
 **Decision: Add docstrings and inline comments to seed.py and app.py**
-Both source files were commented in a consistent style: NumPy-format docstrings (Parameters / Returns sections) on all functions, and inline comments explaining non-obvious logic — the why, not the what. This was done to make the codebase readable for a reviewer encountering it for the first time.
+Dawson initiated a full commenting pass on both source files. The style — NumPy-format docstrings with Parameters / Returns sections, plus inline comments explaining the why — was set by Dawson to make the codebase readable for a reviewer encountering it for the first time.
 
 ---
 
@@ -366,7 +369,7 @@ Researched 2026-11-11. Sources: WHO ATC/DDD Index, Canadian Journal of Hospital 
 - Plan Full Inventory legend and highlight clarification
 
 #### Accomplished
-- Pushed dev branch to GitHub (Dawson — first remote push)
+- Pushed dev branch to GitHub
 - Reviewed full feature checklist against brief: all 5 must-haves confirmed complete, shortage signal partially complete, demand forecast not started, `writeup.md` not started
 - Dawson updated Full Inventory alert colors in `app.py`:
   - Critical + shortage: `#8B0C0C` (deep maroon)
