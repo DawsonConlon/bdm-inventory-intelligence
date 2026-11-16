@@ -24,6 +24,21 @@ if not os.path.exists(DB_PATH    ):
 # ---------------------------------------------------------------------------
 @st.cache_data
 def load_data():
+    """
+    Load the full inventory dashboard view from the database.
+
+    Reads from v_inventory_dashboard, a SQL view that pre-joins sites, drugs,
+    and the most recent inventory snapshot for each drug-site pair. Caching
+    with @st.cache_data means the query runs once per session; Streamlit
+    re-runs the script on every user interaction, but the data is reused.
+
+    Returns
+    -------
+    pd.DataFrame
+        One row per drug-site combination. Key columns: generic_name,
+        site_name, province, alert_level, days_of_supply, shortage_active,
+        shortage_tier, display_qty, avg_daily_usage_7d, avg_daily_usage_30d.
+    """
     conn = sqlite3.connect(DB_PATH)
     df = pd.read_sql_query("SELECT * FROM v_inventory_dashboard", conn)
     conn.close()
@@ -31,6 +46,19 @@ def load_data():
 
 @st.cache_data
 def load_purchase_orders():
+    """
+    Load all purchase orders from the database.
+
+    Used to build the procurement history panel in Tab 1. Loaded once and
+    filtered in-memory per drug-site selection so we avoid repeated queries.
+
+    Returns
+    -------
+    pd.DataFrame
+        All rows from purchase_orders. Key columns: drug_id, site_id,
+        distributor_id, order_date, quantity_ordered, qty_on_hand_at_order,
+        unit_cost, lead_time_days, status.
+    """
     conn = sqlite3.connect(DB_PATH)
     df = pd.read_sql_query("SELECT * FROM purchase_orders", conn)
     conn.close()
@@ -38,6 +66,18 @@ def load_purchase_orders():
 
 @st.cache_data
 def load_distributors():
+    """
+    Load distributor reference data from the database.
+
+    Merged into purchase orders so the procurement panel can display
+    human-readable distributor names instead of raw IDs.
+
+    Returns
+    -------
+    pd.DataFrame
+        All rows from distributors. Key columns: distributor_id,
+        distributor_name, distributor_type.
+    """
     conn = sqlite3.connect(DB_PATH)
     df = pd.read_sql_query("SELECT * FROM distributors", conn)
     conn.close()
@@ -52,10 +92,13 @@ dist_df = load_distributors()
 # ---------------------------------------------------------------------------
 st.sidebar.title("Geography")
 
+# Snapshot the critical rows before any filtering so we always start
+# from the full critical set and can re-apply geography selections cleanly.
 critical = df[df["alert_level"] == "critical"].copy()
 
-# Build filter options from the full dataset so every site appears,
-# not just those with critical items. Each level narrows the next.
+# filter_base drives the dropdown options, not the displayed data.
+# Using the full df means every site appears in the Site picker even if
+# that site has no critical items — prevents the Calgary / "missing site" bug.
 filter_base = df.copy()
 
 regions = ["All"] + sorted(filter_base["region"].dropna().unique().tolist())
@@ -174,7 +217,9 @@ st.caption("Drugs at ≤ 7 days of supply — snapshot 2026-11-11")
 # ---------------------------------------------------------------------------
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("Critical Items", len(critical))
+# shortage_active is 0/1 integer — sum() gives the count of active shortages
 col2.metric("Shortage Flags", int(critical["shortage_active"].sum()))
+# nunique() counts distinct IDs, so a site with multiple critical drugs counts once
 col3.metric("Sites Affected", critical["site_id"].nunique())
 col4.metric("Provinces Affected", critical["province"].nunique())
 
@@ -223,6 +268,25 @@ with tab1:
         shortage_flags = critical["shortage_active"].tolist()
 
         def highlight_critical(row):
+            """
+            Apply row-level background color to the Critical Alerts table.
+
+            Every row in Tab 1 is already critical (≤7 days). The only
+            distinction here is whether a Health Canada shortage is also active.
+            row.name is the DataFrame integer index, used to look up the
+            pre-built shortage_flags list in O(1) rather than re-querying.
+
+            Parameters
+            ----------
+            row : pd.Series
+                One row of display_df, passed by Styler.apply(axis=1).
+
+            Returns
+            -------
+            list[str]
+                One CSS background-color string per cell in the row.
+            """
+            # Maroon for critical + active shortage; orange for critical only
             color = "#8B0C0C" if shortage_flags[row.name] == 1 else "#E96A10C3"
             return [f"background-color: {color}" for _ in row]
 
@@ -269,14 +333,20 @@ with tab1:
 
             recent5 = orders.head(5).reset_index(drop=True)
 
-            # Compute Days Since Last Order and Units Used across consecutive rows.
-            # Sorted descending so row i+1 is the prior (older) order.
-            # The oldest visible row (last) gets "—" for both since there is no
-            # earlier order in the window to compare against.
+            # Walk the 5 most recent orders (sorted newest-first) to derive two
+            # computed columns that are not stored in the database:
+            #
+            #   Days Since Last Order — calendar days between consecutive orders.
+            #   Units Used            — stock consumed between orders, calculated as:
+            #                           prev_qty_on_hand + prev_qty_ordered − this_qty_on_hand
+            #
+            # Row i+1 is always the older order. The final (oldest) row gets "—"
+            # because there is no earlier row to diff against.
             days_since_col = []
             units_used_col = []
             for i in range(len(recent5)):
                 if i == len(recent5) - 1:
+                    # Oldest visible row — no earlier order to compare against
                     days_since_col.append("—")
                     units_used_col.append("—")
                 else:
@@ -288,6 +358,7 @@ with tab1:
                     prev_ordered = recent5.iloc[i + 1]["quantity_ordered"]
                     this_qty     = recent5.iloc[i]["qty_on_hand_at_order"]
                     if pd.notna(prev_qty) and pd.notna(this_qty):
+                        # Units consumed = what was on hand + what arrived − what remains
                         used = int(prev_qty + prev_ordered - this_qty)
                         units_used_col.append(f"{used:,}")
                     else:
@@ -359,18 +430,36 @@ with tab2:
         shortage_flags_full = full["shortage_active"].tolist()
 
         def highlight_full(row):
+            """
+            Apply row-level background color to the Full Inventory table.
+
+            Five distinct states are possible in Tab 2, compared to the two
+            in Tab 1. Healthy rows return an empty string so they inherit the
+            default Streamlit table background rather than a hard-coded color,
+            which keeps them legible in both light and dark themes.
+
+            Parameters
+            ----------
+            row : pd.Series
+                One row of display_full, passed by Styler.apply(axis=1).
+
+            Returns
+            -------
+            list[str]
+                One CSS background-color string (or empty string) per cell.
+            """
             level = alert_levels[row.name]
             shortage = shortage_flags_full[row.name]
             if level == "critical" and shortage == 1:
-                color = "#8B0C0C"
+                color = "#8B0C0C"       # maroon  — critical + active shortage
             elif level == "critical":
-                color = "#E96A10C3"
+                color = "#E96A10C3"     # orange  — critical, no shortage
             elif level == "concern":
-                color = "#4A3800"
+                color = "#4A3800"       # amber   — 8–14 days
             elif level == "untracked":
-                color = "#3A3A3A"
+                color = "#3A3A3A"       # grey    — qty NULL or negative
             else:
-                color = ""
+                color = ""              # no fill — healthy (>14 days)
             return [f"background-color: {color}" if color else "" for _ in row]
 
         styled_full = display_full.style.apply(highlight_full, axis=1)
