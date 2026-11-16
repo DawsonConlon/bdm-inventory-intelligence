@@ -124,6 +124,33 @@ st.sidebar.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+st.sidebar.divider()
+st.sidebar.markdown("**Health Canada Shortage Tiers**")
+st.sidebar.markdown("""
+<style>
+.tier-row { display:flex; align-items:flex-start; gap:8px; margin-bottom:10px; }
+.tier-badge { font-size:10px; font-weight:700; color:#E6E7E8; background:#5A1A1A; border:1px solid #8B0C0C; border-radius:3px; padding:1px 5px; flex-shrink:0; margin-top:2px; white-space:nowrap; }
+.tier-label { font-size:12px; font-weight:600; color:#E6E7E8; }
+.tier-desc { font-size:11px; color:#9a9b9c; line-height:1.4; margin-top:1px; }
+</style>
+<div class="tier-row">
+  <div class="tier-badge">Tier 1</div>
+  <div><div class="tier-label">Manageable</div>
+  <div class="tier-desc">Supply is interrupted but alternatives exist and patient care is not expected to be impacted</div></div>
+</div>
+<div class="tier-row">
+  <div class="tier-badge">Tier 2</div>
+  <div><div class="tier-label">Serious</div>
+  <div class="tier-desc">Shortage may impact patient care; alternatives may be limited or require protocol changes</div></div>
+</div>
+<div class="tier-row">
+  <div class="tier-badge">Tier 3</div>
+  <div><div class="tier-label">Critical</div>
+  <div class="tier-desc">Shortage will likely impact patient care; no suitable alternatives or all alternatives are also constrained</div></div>
+</div>
+<div style="font-size:10px;color:#6a6b6c;margin-top:4px;">Source: Health Product Shortages Canada — healthproductshortages.ca</div>
+""", unsafe_allow_html=True)
+
 # Apply same selections to full dataset for Tab 2
 full = df.copy()
 if region != "All":

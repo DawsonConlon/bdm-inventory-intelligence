@@ -471,4 +471,18 @@ The database now seeds 5 tables: distributors, sites, drugs, inventory_snapshots
 
 The underlying idea remains valid and Dawson intends to implement it in a future version: showing whether substitute drugs are themselves under shortage or supply constraint turns the shortage tier from a static label into actionable decision support. The ATC codes are still stored on the `drugs` table, which will enable this lookup when the feature is revisited.
 
+---
+
+## Future Plans
+
+### Live Shortage Tier Data — Health Canada API Integration
+
+The current tool hardcodes shortage tier values (e.g. Tier 3 for Acetylcholine Chloride) sourced manually from Health Product Shortages Canada on 2026-11-11. The plan is to replace these static values with live data pulled directly from the Health Canada Drug Shortages API.
+
+**API source:** Health Product Shortages Canada — https://www.healthproductshortages.ca/api/
+
+The API supports querying by DIN, drug name, and shortage status. A production implementation would call this API at app load time (or on a nightly scheduled job) to fetch the current shortage tier and status for each drug in the database, then store the result in a `shortage_cache` table with a `fetched_at` timestamp. The UI would display the live tier label alongside how recently the data was refreshed.
+
+The DINs are already stored in the `drugs` table, so the lookup key is in place. The only remaining step is authenticated API access — Health Canada's API blocks unauthenticated automated requests, but a free account or API key issued to a healthcare organization would bypass this restriction.
+
 <!-- Add new days below this line in the same format -->
