@@ -403,21 +403,30 @@ Researched 2026-11-11. Sources: WHO ATC/DDD Index, Canadian Journal of Hospital 
 
 ---
 
-### Day 6 — 2026-11-16 (planned)
+### Day 6 — 2026-11-16
 
 #### Planned
+- Fix geography filter missing Calgary (Bug 1)
+- Fix Healthy / Untracked legend colors indistinguishable (Bug 2)
 
-**Bug 1 — Geography filter missing Calgary:**
-The cascading sidebar filters (Region → Province → City → Site) are populated dynamically from the `critical` DataFrame (alert_level = 'critical' rows). Calgary/S02 has no critical items in the current snapshot data, so it never appears in the city or site dropdowns — but Calgary rows do appear in Tab 2 (Full Inventory). The bug: Tab 2 uses the same geography filter selections that were built from the critical subset, so a user can never filter Tab 2 to Calgary-only. Fix: build the geography filter options from the full dataset (`df`), not from the already-filtered `critical` subset. Apply the selected filters to both `critical` and `full` afterward.
+#### Accomplished
 
-**Bug 2 — Healthy / Untracked legend colors hard to distinguish:**
-The sidebar legend shows Healthy as a near-black dot (`#3a3a3a` with `#666` border) and Untracked/N/A as a slightly darker near-black dot (`#2A2A2A` with `#555` border). On the dark `#1F2123` background these two dots are nearly identical to the naked eye. Investigate whether the visual difference is sufficient; if not, propose a clearer color treatment (e.g. a visible mid-grey for Untracked vs. the default background tone for Healthy, or a hatched/striped indicator for Untracked).
+**Bug 1 — Geography filter missing Calgary — Fixed:**
+Root cause: the sidebar cascading dropdowns (Region → Province → City → Site) were built by filtering the `critical` DataFrame at each step. Calgary/S02 has no critical items, so it never entered the option lists — meaning Tab 2 (Full Inventory) also could not be filtered to Calgary.
+Fix: introduced a separate `filter_base` DataFrame (copy of full `df`) to build all four dropdown option lists. The cascade narrows `filter_base` at each level so the options still update contextually, but all 25 rows are eligible. The user's selections are then applied independently to both `critical` and `full` afterward. Any site with zero critical items is now visible in the filters.
 
-**Feature — Procurement history: add Qty on Hand and Units Used columns:**
-In the Tab 1 procurement detail panel, add two new columns to the 5-most-recent-orders table:
-- **Qty on Hand at Order** — how much inventory was recorded in the system for that drug/site at the time the order was placed. This is not currently stored in `purchase_orders`; will need to either add a column to the seed script and backfill simulated snapshot values per order date, or derive it from the existing `inventory_snapshots` table as a proxy (simpler but less accurate).
-- **Units Used (since prior order)** — units consumed between this order date and the previous order date for the same drug/site. Derivable from `avg_daily_usage_7d × days_between_orders` if exact usage logs don't exist. Need to decide with Dawson whether to backfill real per-date usage into `purchase_orders` or calculate it at query time from the usage averages.
+**Bug 2 — Healthy / Untracked legend colors — Fixed:**
+Root cause: both legend dots were near-black on a near-black sidebar background (`#2A2A2A` / `#3a3a3a`), visually indistinguishable.
+Fix:
+- Untracked/N/A legend dot: `#2A2A2A` → `#5A5A5A` with `#888` border (clearly visible mid-grey — signals "data problem")
+- Healthy legend dot: `#3a3a3a` → `#2B2E31` with `#444` border (matches sidebar background — signals "nothing notable")
+- Tab 2 untracked row highlight: `#2A2A2A` → `#3A3A3A` (more distinguishable from the `#1F2123` default row background)
 
-The user story is: "This is how much we had — this is how much we used — this is how much we ordered." These three columns together give a complete demand-and-replenishment picture per order event.
+#### Decisions Made
+- Filter options built from full dataset (`df`), not critical subset — Dawson confirmed approach before implementation
+- Untracked color in legend and table made visibly grey; Healthy blends into sidebar background (Dawson's review pending commit)
+
+#### Open Questions
+- None — both bugs resolved
 
 <!-- Add new days below this line in the same format -->

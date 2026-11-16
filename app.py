@@ -240,18 +240,56 @@ with tab1:
             m2.metric("Avg Unit Cost (delivered)", f"${avg_cost:.4f}")
             m3.metric("Orders (6 months)", total_orders)
 
-            recent = orders.head(5)[[
-                "order_date", "distributor_name", "quantity_ordered",
-                "unit_cost", "lead_time_days", "status",
+            recent5 = orders.head(5).reset_index(drop=True)
+
+            # Compute Days Since Last Order and Units Used across consecutive rows.
+            # Sorted descending so row i+1 is the prior (older) order.
+            # The oldest visible row (last) gets "—" for both since there is no
+            # earlier order in the window to compare against.
+            days_since_col = []
+            units_used_col = []
+            for i in range(len(recent5)):
+                if i == len(recent5) - 1:
+                    days_since_col.append("—")
+                    units_used_col.append("—")
+                else:
+                    d_this = pd.to_datetime(recent5.iloc[i]["order_date"])
+                    d_prev = pd.to_datetime(recent5.iloc[i + 1]["order_date"])
+                    days_since_col.append(str((d_this - d_prev).days))
+
+                    prev_qty     = recent5.iloc[i + 1]["qty_on_hand_at_order"]
+                    prev_ordered = recent5.iloc[i + 1]["quantity_ordered"]
+                    this_qty     = recent5.iloc[i]["qty_on_hand_at_order"]
+                    if pd.notna(prev_qty) and pd.notna(this_qty):
+                        used = int(prev_qty + prev_ordered - this_qty)
+                        units_used_col.append(f"{used:,}")
+                    else:
+                        units_used_col.append("—")
+
+            recent5 = recent5.copy()
+            recent5["Days Since Last Order"] = days_since_col
+            recent5["Units Used"]      = units_used_col
+            recent5["Qty on Hand"]     = recent5["qty_on_hand_at_order"].apply(
+                lambda x: f"{int(x):,}" if pd.notna(x) else "—"
+            )
+            recent5["Qty Ordered"]     = recent5["quantity_ordered"].apply(lambda x: f"{x:,}")
+            recent5["Lead (days)"]     = recent5.apply(
+                lambda r: "—" if r["status"] == "in_transit" else str(int(r["lead_time_days"])),
+                axis=1,
+            )
+
+            recent_display = recent5[[
+                "order_date", "distributor_name",
+                "Qty on Hand", "Days Since Last Order", "Units Used", "Qty Ordered",
+                "unit_cost", "Lead (days)", "status",
             ]].rename(columns={
                 "order_date":       "Order Date",
                 "distributor_name": "Distributor",
-                "quantity_ordered": "Qty Ordered",
                 "unit_cost":        "Unit Cost ($)",
-                "lead_time_days":   "Lead (days)",
+                "Lead (days)":      "Days to Delivery",
                 "status":           "Status",
             })
-            st.dataframe(recent, hide_index=True, width="stretch")
+            st.dataframe(recent_display, hide_index=True, width="stretch")
 
 # ---------------------------------------------------------------------------
 # Tab 2 — Full Inventory

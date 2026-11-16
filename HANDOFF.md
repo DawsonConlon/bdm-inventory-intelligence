@@ -285,15 +285,15 @@ python3 -m streamlit run app.py
 ```
 On first run, `app.py` auto-seeds the database if `data/bdm.db` is missing. Use `python3 -m streamlit` not `streamlit` directly — `streamlit` may not be on PATH depending on environment.
 
-**Verified in browser (unfiltered, as of Day 5):**
+**Verified in browser (unfiltered, as of Day 6):**
 - Tab 1 (Critical Alerts): 6 rows, sorted by days_of_supply ascending
 - Tiles: Critical Items 6 | Shortage Flags 2 | Sites Affected 4 | Provinces Affected 4
 - Acetylcholine Chloride rows show "[Tier 3]" badge and maroon (#8B0C0C) highlight
-- Non-shortage critical rows highlighted orange (#E96A10C3) — bug fixed Day 5 (was showing no color)
-- Geography sidebar filters cascade correctly
-- Sidebar legend: colored dots + plain-language operational descriptions for each alert tier
+- Non-shortage critical rows highlighted orange (#E96A10C3) — bug fixed Day 5
+- Geography sidebar filters cascade correctly and include all sites (Calgary now visible) — bug fixed Day 6
+- Sidebar legend: Untracked dot now mid-grey (#5A5A5A), Healthy dot matches sidebar background (#2B2E31) — bug fixed Day 6
 - "View procurement history for:" selectbox — pick any drug/site, shows avg lead time, avg unit cost, 5 most recent POs
-- Tab 2 (Full Inventory): all 25 rows, same geography filters, color-coded by alert level
+- Tab 2 (Full Inventory): all 25 rows, same geography filters, color-coded by alert level; untracked rows #3A3A3A
 - Theme: #1F2123 background, #E6E7E8 text, #F4A982 warm peach accent (Dawson's final values)
 
 **Current git branch:** `dev` — pushed to GitHub (all Day 4 work committed)
@@ -308,16 +308,7 @@ On first run, `app.py` auto-seeds the database if `data/bdm.db` is missing. Use 
 
 ## Open Items for Next Session
 
-### Bugs to fix (Day 6)
-
-**Bug 1 — Geography filter missing Calgary (and any site with no critical items):**
-Root cause: the sidebar filter dropdowns (Region → Province → City → Site) are built from the `critical` DataFrame, which only contains rows where `alert_level = 'critical'`. Calgary/S02 has no critical rows, so it is absent from the city and site dropdowns entirely. This also means Tab 2 (Full Inventory) cannot be filtered to Calgary because it inherits the same sidebar selections.
-Fix: populate filter options from the full `df` (all 25 rows), not from the pre-filtered `critical` subset. Apply the selected values to both `critical` and `full` after the filters are set.
-
-**Bug 2 — Healthy vs. Untracked legend dots visually indistinguishable:**
-The sidebar legend uses `#3a3a3a` (border `#666`) for Healthy and `#2A2A2A` (border `#555`) for Untracked/N/A. On the `#1F2123` dark background these two dots look nearly identical. Need to investigate and either confirm the visual difference is acceptable or redesign — e.g. a visible mid-grey for Untracked vs. nothing/background-tone for Healthy. Actual row highlight colors in Tab 2 are also affected (`#2A2A2A` for untracked, no color for healthy — confirm these are clearly distinct in-table too).
-
-### Feature to add (Day 6)
+### Feature to add (Day 6 — open)
 
 **Procurement history: Qty on Hand at Order + Units Used columns:**
 Add two columns to the 5-most-recent-orders table in the Tab 1 procurement detail panel:

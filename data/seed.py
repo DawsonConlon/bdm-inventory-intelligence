@@ -95,16 +95,17 @@ def create_tables(conn: sqlite3.Connection) -> None:
         -- Lead times and costs vary by distributor — this is the data that
         -- feeds future ML models for reorder-point and lead-time prediction.
         CREATE TABLE purchase_orders (
-            order_id         TEXT PRIMARY KEY,
-            site_id          TEXT    NOT NULL REFERENCES sites(site_id),
-            drug_id          TEXT    NOT NULL REFERENCES drugs(drug_id),
-            distributor_id   TEXT    NOT NULL REFERENCES distributors(distributor_id),
-            order_date       TEXT    NOT NULL,   -- ISO date
-            delivery_date    TEXT    NOT NULL,
-            lead_time_days   INTEGER NOT NULL,
-            unit_cost        REAL    NOT NULL,   -- cost per canonical unit (vial / tablet / IU)
-            quantity_ordered INTEGER NOT NULL,
-            status           TEXT    NOT NULL    -- 'delivered' / 'in_transit' / 'pending'
+            order_id               TEXT PRIMARY KEY,
+            site_id                TEXT    NOT NULL REFERENCES sites(site_id),
+            drug_id                TEXT    NOT NULL REFERENCES drugs(drug_id),
+            distributor_id         TEXT    NOT NULL REFERENCES distributors(distributor_id),
+            order_date             TEXT    NOT NULL,   -- ISO date
+            delivery_date          TEXT    NOT NULL,
+            lead_time_days         INTEGER NOT NULL,
+            unit_cost              REAL    NOT NULL,   -- cost per canonical unit (vial / tablet / IU)
+            quantity_ordered       INTEGER NOT NULL,
+            status                 TEXT    NOT NULL,   -- 'delivered' / 'in_transit' / 'pending'
+            qty_on_hand_at_order   INTEGER             -- stock level when this order was placed; NULL for untracked/negative sites
         );
 
         -- drug_alternatives: substitute drugs to consider when a primary drug runs low.
@@ -319,13 +320,23 @@ _AVG_DAILY = {
     ("S01","D5"): 150,  ("S02","D5"): 160,  ("S03","D5"): 140,  ("S04","D5"): 120,  ("S05","D5"): 100,
 }
 
+# Snapshot qty per site-drug on 2026-11-11 (mirrors inventory_snapshots).
+# None = untracked or negative — qty_on_hand_at_order will be NULL for all orders at that site/drug.
+_SNAPSHOT_QTY = {
+    ("S01","D1"): 32,    ("S02","D1"): 72,    ("S03","D1"): 180,  ("S04","D1"): 49,    ("S05","D1"): None,
+    ("S01","D2"): 7700,  ("S02","D2"): 1980,  ("S03","D2"): 750,  ("S04","D2"): None,  ("S05","D2"): 2400,
+    ("S01","D3"): 1890,  ("S02","D3"): 1200,  ("S03","D3"): 1000, ("S04","D3"): 350,   ("S05","D3"): 975,
+    ("S01","D4"): 36000, ("S02","D4"): 27000, ("S03","D4"): 18000,("S04","D4"): 14000, ("S05","D4"): 7200,
+    ("S01","D5"): 2250,  ("S02","D5"): 1920,  ("S03","D5"): 980,  ("S04","D5"): 1800,  ("S05","D5"): 1200,
+}
+
 
 def seed_purchase_orders(conn: sqlite3.Connection) -> None:
     rng = random.Random(42)  # fixed seed = reproducible data every run
     start = date(2026, 5, 12)
     today = date(2026, 11, 11)  # snapshot date
 
-    rows = []
+    all_rows = []
     order_num = 1
 
     for site_id in ["S01", "S02", "S03", "S04", "S05"]:
@@ -338,19 +349,19 @@ def seed_purchase_orders(conn: sqlite3.Connection) -> None:
                 primary_dist = _SITE_DIST_OVERRIDE[site_id]
                 secondary_dist = "DIST01"
 
+            # Build all orders for this (site, drug) pair first so we can
+            # backfill qty_on_hand_at_order across the whole sequence.
+            pair_orders = []
             order_date = start
             while order_date <= today:
-                # 80% primary distributor, 20% secondary
                 dist_id = primary_dist if rng.random() < 0.80 else secondary_dist
 
                 lead_lo, lead_hi = _DIST_LEAD[dist_id]
                 lead_days = rng.randint(lead_lo, lead_hi)
                 delivery_date = order_date + timedelta(days=lead_days)
 
-                # Quantity: avg_daily × order_freq × buffer (simulate realistic variance)
                 buffer = rng.uniform(0.90, 1.30)
                 qty = max(1, round(avg_daily * freq_days * buffer))
-
                 unit_cost = round(rng.uniform(cost_lo, cost_hi), 4)
 
                 if delivery_date <= today:
@@ -360,29 +371,61 @@ def seed_purchase_orders(conn: sqlite3.Connection) -> None:
                 else:
                     status = "pending"
 
-                rows.append((
-                    f"PO{order_num:04d}",
-                    site_id, drug_id, dist_id,
-                    order_date.isoformat(),
-                    delivery_date.isoformat(),
-                    lead_days,
-                    unit_cost,
-                    qty,
-                    status,
-                ))
+                pair_orders.append({
+                    "order_id":      f"PO{order_num:04d}",
+                    "site_id":       site_id,
+                    "drug_id":       drug_id,
+                    "order_date":    order_date,
+                    "delivery_date": delivery_date,
+                    "lead_days":     lead_days,
+                    "unit_cost":     unit_cost,
+                    "qty":           qty,
+                    "status":        status,
+                    "dist_id":       dist_id,
+                })
                 order_num += 1
-
                 jitter = rng.randint(-2, 2)
                 order_date += timedelta(days=freq_days + jitter)
+
+            # Compute qty_on_hand_at_order by walking forward from an opening
+            # stock of 2 order cycles. This avoids the backwards-walk breaking
+            # for critically low items (e.g. D1/S01 snapshot = 32 vials).
+            # Formula: at each order, record current stock, then advance:
+            #   running_qty = running_qty + qty_ordered - days_to_next * avg_daily
+            # For untracked/negative sites the column stays NULL.
+            if _SNAPSHOT_QTY[(site_id, drug_id)] is None:
+                for o in pair_orders:
+                    o["qty_on_hand_at_order"] = None
+            else:
+                asc = sorted(pair_orders, key=lambda x: x["order_date"])
+                running_qty = float(avg_daily * freq_days * 2)  # ~2 cycles as opening stock
+                for i, o in enumerate(asc):
+                    o["qty_on_hand_at_order"] = max(0, round(running_qty))
+                    days_gap = (
+                        (asc[i + 1]["order_date"] - o["order_date"]).days
+                        if i + 1 < len(asc)
+                        else (today - o["order_date"]).days
+                    )
+                    running_qty = running_qty + o["qty"] - days_gap * avg_daily
+
+            all_rows.extend(pair_orders)
 
     conn.executemany(
         """INSERT INTO purchase_orders
            (order_id, site_id, drug_id, distributor_id, order_date, delivery_date,
-            lead_time_days, unit_cost, quantity_ordered, status)
-           VALUES (?,?,?,?,?,?,?,?,?,?)""",
-        rows,
+            lead_time_days, unit_cost, quantity_ordered, status, qty_on_hand_at_order)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+        [
+            (
+                o["order_id"], o["site_id"], o["drug_id"], o["dist_id"],
+                o["order_date"].isoformat(), o["delivery_date"].isoformat(),
+                o["lead_days"], o["unit_cost"], o["qty"], o["status"],
+                o["qty_on_hand_at_order"],
+            )
+            for o in all_rows
+        ],
     )
-    print(f"Purchase orders inserted: {len(rows)} rows.")
+    print(f"Purchase orders inserted: {len(all_rows)} rows.")
 
 
 # ---------------------------------------------------------------------------
