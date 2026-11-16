@@ -285,11 +285,11 @@ python3 -m streamlit run app.py
 ```
 On first run, `app.py` auto-seeds the database if `data/bdm.db` is missing. Use `python3 -m streamlit` not `streamlit` directly — `streamlit` may not be on PATH depending on environment.
 
-**Verified in browser (unfiltered, as of Day 4):**
+**Verified in browser (unfiltered, as of Day 5):**
 - Tab 1 (Critical Alerts): 6 rows, sorted by days_of_supply ascending
 - Tiles: Critical Items 6 | Shortage Flags 2 | Sites Affected 4 | Provinces Affected 4
 - Acetylcholine Chloride rows show "[Tier 3]" badge and maroon (#8B0C0C) highlight
-- Non-shortage critical rows highlighted orange (#E96A10C3)
+- Non-shortage critical rows highlighted orange (#E96A10C3) — bug fixed Day 5 (was showing no color)
 - Geography sidebar filters cascade correctly
 - Sidebar legend: colored dots + plain-language operational descriptions for each alert tier
 - "View procurement history for:" selectbox — pick any drug/site, shows avg lead time, avg unit cost, 5 most recent POs

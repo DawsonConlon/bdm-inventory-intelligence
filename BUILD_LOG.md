@@ -385,4 +385,20 @@ Researched 2026-11-11. Sources: WHO ATC/DDD Index, Canadian Journal of Hospital 
 #### Open Questions
 - None — Day 4 UI work complete
 
+---
+
+### Day 5 — 2026-11-15 (continued)
+
+#### Planned
+- Fix Tab 1 critical row highlight: non-shortage critical rows should be orange, matching the legend
+
+#### Accomplished
+- **Tab 1 highlight bug fixed:** `highlight_critical()` was only applying maroon (`#8B0C0C`) to shortage rows and no color to all other critical rows. Updated the else branch from `""` to `"#E96A10C3"` so non-shortage critical rows now render orange, matching the sidebar legend and Tab 2 behavior.
+
+#### Decisions Made
+- No new decisions — fix aligns Tab 1 with colors already confirmed by Dawson on Day 4
+
+#### Open Questions
+- None
+
 <!-- Add new days below this line in the same format -->

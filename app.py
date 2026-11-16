@@ -191,7 +191,6 @@ with tab1:
 
         if int(critical["shortage_active"].sum()) > 0:
             st.caption("Highlighted rows have an active drug shortage.")
-            st.caption("Non highlighted rows have 7 days or less of supplies.")
 
         # ---------------------------------------------------------------
         # Procurement detail panel — driven by a selectbox
