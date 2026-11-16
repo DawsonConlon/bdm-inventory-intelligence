@@ -159,19 +159,19 @@ with tab1:
         critical["Days of Supply"] = critical["days_of_supply"].map(
             lambda x: f"{x:.1f}" if pd.notna(x) else "N/A"
         )
-        critical["Daily Usage (7d)"] = critical["avg_daily_usage_7d"].map(
+        critical["Daily Usage"] = critical["avg_daily_usage_7d"].map(
             lambda x: f"{x:,.0f}"
         )
-        critical["Weekly Usage (7d)"] = critical["avg_daily_usage_7d"].map(
+        critical["Weekly Usage"] = critical["avg_daily_usage_7d"].map(
             lambda x: f"{x * 7:,.0f}"
         )
-        critical["Monthly Usage (30d)"] = critical["avg_daily_usage_30d"].map(
+        critical["Monthly Usage"] = critical["avg_daily_usage_30d"].map(
             lambda x: f"{x * 30:,.0f}"
         )
 
         display_df = critical[[
             "Drug", "site_name", "province", "display_qty",
-            "Daily Usage (7d)", "Weekly Usage (7d)", "Monthly Usage (30d)",
+            "Daily Usage", "Weekly Usage", "Monthly Usage",
             "Days of Supply",
         ]].rename(columns={
             "site_name": "Site",
@@ -257,19 +257,19 @@ with tab2:
         full["Days of Supply"] = full["days_of_supply"].map(
             lambda x: f"{x:.1f}" if pd.notna(x) else "N/A"
         )
-        full["Daily Usage (7d)"] = full["avg_daily_usage_7d"].map(
+        full["Daily Usage"] = full["avg_daily_usage_7d"].map(
             lambda x: f"{x:,.0f}"
         )
-        full["Weekly Usage (7d)"] = full["avg_daily_usage_7d"].map(
+        full["Weekly Usage"] = full["avg_daily_usage_7d"].map(
             lambda x: f"{x * 7:,.0f}"
         )
-        full["Monthly Usage (30d)"] = full["avg_daily_usage_30d"].map(
+        full["Monthly Usage"] = full["avg_daily_usage_30d"].map(
             lambda x: f"{x * 30:,.0f}"
         )
 
         display_full = full[[
             "Drug", "site_name", "city", "province", "display_qty",
-            "Daily Usage (7d)", "Weekly Usage (7d)", "Monthly Usage (30d)",
+            "Daily Usage", "Weekly Usage", "Monthly Usage",
             "Days of Supply", "alert_level",
         ]].rename(columns={
             "site_name":   "Site",
