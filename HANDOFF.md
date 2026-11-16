@@ -85,7 +85,7 @@ bdm-inventory-intelligence/
 
 ---
 
-## Database Design — 6 Tables
+## Database Design — 5 Tables
 
 ### Table 1: `sites` (simulated)
 
@@ -107,7 +107,7 @@ All DINs confirmed from Health Canada DPD. Shortage flags sourced manually from 
 | D2 | Hydromorphone HCl | APO-Hydromorphone | 02364123 | No | — | Last shortage resolved 2017-12-14 (Report 26163). No active shortage. ATC: N02AA |
 | D3 | Atorvastatin | Lipitor | 02230711 | No | — | Common statin. ATC: C10AA05 |
 | D4 | Insulin Glargine | Lantus | 02240292 | No | — | High daily volume drug. ATC: A10AE04 |
-| D5 | Metoprolol | Lopressor | 00648051 | No | — | Common cardiac drug. ATC: C07AB02 |
+| D5 | Metoprolol | Lopressor | 00648051 | Yes | Tier 2 | Serious supply disruption; alternatives may require protocol changes. Active since 2026-09-15, runs to 2027-03-01. ATC: C07AB02 |
 
 ### Table 3: `inventory_snapshots` — 25 Approved Rows
 
@@ -155,23 +155,17 @@ Alert levels: `critical` (≤7 days), `concern` (8–14 days), `none` (>14 days)
 | S04 | 1400 | 1400 | 14000 | 10.0 | concern | #2: concern |
 | S05 | 1200 | 1100* | 7200 | 6.0 | critical | #3: critical |
 
-**D5 — Metoprolol (tablets) — No Shortage**
+**D5 — Metoprolol (tablets) — Active Shortage, Tier 2**
 
 | site_id | avg_7d | avg_30d | qty_on_hand | days_of_supply | alert_level | Situation |
 |---|---|---|---|---|---|---|
-| S01 | 150 | 145 | 2250 | 15.0 | none | #1: healthy |
-| S02 | 160 | 155 | 1920 | 12.0 | concern | #2: concern |
-| S03 | 140 | 130* | 980 | 7.0 | critical | #4: exactly 7d, no shortage |
-| S04 | 120 | 115 | 1800 | 15.0 | none | #1: healthy |
-| S05 | 100 | 95 | 1200 | 12.0 | concern | #2: concern |
+| S01 | 150 | 145 | 2250 | 15.0 | none | #1: healthy + shortage |
+| S02 | 160 | 155 | 1920 | 12.0 | concern | #2: concern + shortage |
+| S03 | 140 | 130* | 980 | 7.0 | critical | #4+5: exactly 7d + shortage |
+| S04 | 120 | 115 | 1800 | 15.0 | none | #1: healthy + shortage |
+| S05 | 100 | 95 | 1200 | 12.0 | concern | #2: concern + shortage |
 
-### Table 4: `drug_alternatives`
-
-10 rows (2 per primary drug). DINs sourced manually on 2026-11-11 — the DPD REST API was returning empty responses at time of seeding. Shortage status simulated. Stock simulated.
-
-Key columns: `alt_id`, `primary_drug_id` (FK → drugs), `alt_generic_name`, `alt_din`, `alt_atc_code`, `alt_shortage_active`, `alt_shortage_tier`, `alt_qty_on_hand_all_sites`, `alt_availability`
-
-### Table 5: `distributors`
+### Table 4: `distributors`
 
 3 rows. Real Canadian hospital drug distributors.
 
@@ -181,7 +175,7 @@ Key columns: `alt_id`, `primary_drug_id` (FK → drugs), `alt_generic_name`, `al
 | DIST02 | Cardinal Health Canada | National | hospital.supply@cardinalhealth.ca |
 | DIST03 | Innomar Strategies | Specialty | specialty@innomar.com |
 
-### Table 6: `purchase_orders`
+### Table 5: `purchase_orders`
 
 471 rows. 6 months of procurement history (May 12 – Nov 11, 2026). Generated programmatically with `random.Random(42)` fixed seed — reproducible on every run.
 
@@ -194,19 +188,6 @@ Distributor assignment logic:
 - 80% orders use the primary distributor, 20% secondary
 
 Strategic purpose: this table is the foundation for future ML lead-time prediction and reorder-point optimization models (Dawson's vision).
-
-| primary_drug_id | alt_generic_name | alt_din | shortage_active | availability | Note |
-|---|---|---|---|---|---|
-| D1 | Carbachol | 00042544 | Yes (Tier 2) | Limited | Makes MIOCHOL-E situation actionable — both primary and first alternative are under shortage |
-| D1 | Pilocarpine | 02213044 | No | Uncertain | May be discontinued in DPD |
-| D2 | Morphine | 02302764 | No | Available | |
-| D2 | Oxycodone/Acetaminophen | 02324628 | No | Available | Combination product |
-| D3 | Rosuvastatin | 02337991 | No | Available | |
-| D3 | Simvastatin | 02332000 | No | Available | |
-| D4 | Insulin Detemir | 02271842 | No | Limited | Anticipated discontinuation Dec 2025 |
-| D4 | Insulin Degludec | 02467860 | No | Available | |
-| D5 | Bisoprolol | 02302640 | No | Available | |
-| D5 | Atenolol | 02266660 | No | Available | |
 
 ### Final deliverable view: `v_inventory_dashboard`
 
@@ -232,10 +213,10 @@ ORDER  BY i.days_of_supply ASC;
 | 1 | Healthy stock (>14 days), no flags | D2/S01, D2/S05, D3/S02, D3/S05, D4/S01, D4/S02, D5/S01, D5/S04 |
 | 2 | Concern (8–14 days), no flags | D2/S02, D3/S03, D4/S03, D4/S04, D5/S02, D5/S05 |
 | 3 | Critical (≤7 days), no shortage | D2/S03, D4/S05 |
-| 4 | Exactly 7 days — boundary edge case | D1/S04 (with shortage), D5/S03 (without shortage) |
-| 5 | Critical stock + active shortage flag | D1/S01, D1/S04 |
-| 6 | Healthy stock + active shortage flag | D1/S03 |
-| 7 | Concern stock + active shortage flag | D1/S02 |
+| 4 | Exactly 7 days — boundary edge case | D1/S04 (with shortage), D5/S03 (with shortage, Tier 2) |
+| 5 | Critical stock + active shortage flag | D1/S01, D1/S04, D5/S03 |
+| 6 | Healthy stock + active shortage flag | D1/S03, D5/S01, D5/S04 |
+| 7 | Concern stock + active shortage flag | D1/S02, D5/S02, D5/S05 |
 | 8 | Untracked stock (NULL qty) → N/A | D1/S05 |
 | 9 | Negative stock (data error) → N/A | D2/S04 |
 | 10 | Same drug, opposite risk at different sites | D3/S01 (21d, healthy) vs D3/S04 (5d, critical) |
@@ -267,17 +248,18 @@ ORDER  BY i.days_of_supply ASC;
 
 ---
 
-## Current State — End of Day 4 (2026-11-15)
+## Current State — End of Day 7 (2026-11-16)
 
 **Complete:**
-- `data/seed.py` — idempotent, runs cleanly, all 6 tables populated, view created, 471 POs seeded
+- `data/seed.py` — idempotent, runs cleanly, all 5 tables populated, view created, 471 POs seeded
 - `requirements.txt`
 - `.gitignore`
 - All data designed, approved, and seeded
-- `app.py` — Streamlit UI, Pieces 3–5 complete, verified working in browser
-- Sidebar legend with colored dot swatches and plain-language operational descriptions
-- Column headers cleaned up (no time window suffixes)
-- Stale Tab 2 caption removed
+- `app.py` — Streamlit UI complete, verified working in browser
+- Sidebar legend: alert level colors + shortage tier definitions (Tier 1/2/3)
+- Shortage column in both tabs — plain text, no new colors
+- Drug names clean (no tier badge embedded)
+- Metoprolol: Tier 2 active shortage
 
 **Run command:**
 ```
@@ -285,21 +267,21 @@ python3 -m streamlit run app.py
 ```
 On first run, `app.py` auto-seeds the database if `data/bdm.db` is missing. Use `python3 -m streamlit` not `streamlit` directly — `streamlit` may not be on PATH depending on environment.
 
-**Verified in browser (unfiltered, as of Day 6):**
+**Verified in browser (unfiltered, as of Day 7):**
 - Tab 1 (Critical Alerts): 6 rows, sorted by days_of_supply ascending
-- Tiles: Critical Items 6 | Shortage Flags 2 | Sites Affected 4 | Provinces Affected 4
-- Acetylcholine Chloride rows show "[Tier 3]" badge and maroon (#8B0C0C) highlight
-- Non-shortage critical rows highlighted orange (#E96A10C3) — bug fixed Day 5
-- Geography sidebar filters cascade correctly and include all sites (Calgary now visible) — bug fixed Day 6
-- Sidebar legend: Untracked dot now mid-grey (#5A5A5A), Healthy dot matches sidebar background (#2B2E31) — bug fixed Day 6
+- Tiles: Critical Items 6 | Shortage Flags 3 | Sites Affected 4 | Provinces Affected 4
+- Shortage column shows Tier 3 (Acetylcholine) or Tier 2 (Metoprolol/VGH) or None
+- Drug names are clean generic names — no tier badge in the name
+- Critical + shortage rows: maroon (#8B0C0C); critical rows no shortage: orange (#E96A10C3)
+- Geography sidebar filters cascade correctly and include all sites
+- Sidebar legends: alert level colors + Tier 1/2/3 definitions with healthproductshortages.ca credit
 - "View procurement history for:" selectbox — pick any drug/site, shows avg lead time, avg unit cost, 5 most recent POs
 - Procurement table columns: Order Date | Distributor | Qty on Hand | Days Since Last Order | Units Used | Qty Ordered | Unit Cost ($) | Days to Delivery | Status
-- Days to Delivery shows "—" for in_transit orders; oldest visible row shows "—" for Days Since Last Order and Units Used
-- Tab 2 (Full Inventory): all 25 rows, same geography filters, color-coded by alert level; untracked rows #3A3A3A
+- Tab 2 (Full Inventory): all 25 rows, Shortage column present, same geography filters, color-coded by alert level
 - Theme: #1F2123 background, #E6E7E8 text, #F4A982 warm peach accent (Dawson's final values)
 
-**Current git branch:** `dev` — pushed to GitHub (all Day 4 work committed)
-**Main branch:** not yet updated — merge dev → main before submission
+**Current git branch:** `dev` — all Day 7 work committed and pushed
+**Main branch:** merged from dev as of Day 7
 
 **Final Full Inventory colors (Dawson's confirmed choices, as of 2026-11-15):**
 - Critical + shortage: `#8B0C0C` (deep maroon)
@@ -314,8 +296,8 @@ On first run, `app.py` auto-seeds the database if `data/bdm.db` is missing. Use 
 
 1. **Piece 6 (descoped)** — Drug alternatives panel removed from submission scope (Dawson, 2026-11-16). `drug_alternatives` table and all related seed code deleted. ATC codes remain on the `drugs` table to enable this feature in a future version. The concept: show whether substitute drugs are themselves under shortage, turning the shortage tier into actionable decision support.
 2. **Piece 7 (required)** — `writeup.md` explaining sources, what was simulated, data problems, and what's next. README. Final one-command run verification. Required deliverable per the brief.
-3. **Merge dev → main** — the challenge reviewer will clone main. Do not merge until Piece 7 is done.
-4. **ML forecasting vision (Dawson)** — `purchase_orders` table is the foundation. Future work: lead-time prediction, reorder-point optimization, demand forecast. Not in scope for this challenge.
+3. **ML forecasting vision (Dawson)** — `purchase_orders` table is the foundation. Future work: lead-time prediction, reorder-point optimization, demand forecast. Not in scope for this challenge.
+4. **Live shortage tier data (future)** — Plan documented in BUILD_LOG.md Future Plans section. Health Canada Drug Shortages API (healthproductshortages.ca/api/) would replace manually sourced tier values. DINs are already in the `drugs` table.
 
 ---
 

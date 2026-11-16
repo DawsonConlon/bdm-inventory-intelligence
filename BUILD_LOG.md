@@ -485,4 +485,54 @@ The API supports querying by DIN, drug name, and shortage status. A production i
 
 The DINs are already stored in the `drugs` table, so the lookup key is in place. The only remaining step is authenticated API access — Health Canada's API blocks unauthenticated automated requests, but a free account or API key issued to a healthcare organization would bypass this restriction.
 
+---
+
+### Day 7 — 2026-11-16 (continued)
+
+#### Planned
+- Add shortage tier legend to sidebar explaining Tier 1 / Tier 2 / Tier 3 definitions
+- Add Future Plans section to BUILD_LOG.md documenting Health Canada API integration plan
+- Add a dedicated Shortage column to both Critical Alerts and Full Inventory tabs
+- Remove tier badge from drug names
+- Update Metoprolol to Tier 2 active shortage
+
+#### Accomplished
+
+**Shortage tier legend added to sidebar:**
+A second legend block was added below the alert level legend in the sidebar. It explains the three Health Canada shortage tiers:
+- Tier 1 (Manageable): supply interrupted but alternatives exist, patient care not expected to be impacted
+- Tier 2 (Serious): shortage may impact patient care; alternatives may be limited or require protocol changes
+- Tier 3 (Critical): shortage will likely impact patient care; no suitable alternatives or all alternatives constrained
+
+Source credit included: healthproductshortages.ca
+
+**Future Plans section added to BUILD_LOG.md:**
+Documents the plan to replace manually sourced shortage tier values with live data from the Health Canada Drug Shortages API (healthproductshortages.ca/api/). DINs are already in the `drugs` table. Authenticated API access (free account or org API key) would bypass the current bot-blocking.
+
+**Dedicated Shortage column added — both tabs:**
+- New "Shortage" column added immediately after "Drug" in Critical Alerts and Full Inventory
+- Shows "Tier 1", "Tier 2", "Tier 3", or "None" as plain text — no badges, no new colors; inherits the row's existing text color
+- Drugs with no active shortage show "None" in muted text
+
+**Tier badge removed from drug names:**
+Previously, drug names appended the tier in brackets (e.g. `Acetylcholine Chloride [Tier 3]`). This was removed — drug names are now clean generic names only. The Shortage column is the single source of tier information.
+
+**Caption removed:**
+The caption "Highlighted rows have an active drug shortage." was removed from beneath the Critical Alerts table. The Shortage column makes it self-evident.
+
+**Metoprolol updated to Tier 2 shortage:**
+`data/seed.py` updated: D5 Metoprolol now has `shortage_active = 1`, `shortage_tier = "Tier 2"`, start date 2026-09-15, estimated end 2027-03-01. This means:
+- D5/S03 (VGH Vancouver, 7 days, critical) is now a critical + active shortage row
+- Shortage Flags tile: 2 → 3 (Acetylcholine × 2 + Metoprolol × 1 in the critical view)
+- Full Inventory shows Tier 2 for all 5 Metoprolol rows
+
+#### Decisions Made
+- No new colors introduced for the Shortage column — Dawson's direction
+- Plain text (not badges) for tier values in the column — Dawson's direction
+- Tier badge removed from drug names entirely — Dawson's direction
+- Metoprolol: Tier 2 (Serious) chosen over Tier 1 — Dawson's direction
+
+#### Open Questions
+- None — Day 7 work complete
+
 <!-- Add new days below this line in the same format -->
