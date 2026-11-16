@@ -74,6 +74,42 @@ if site != "All":
 
 critical = critical.sort_values("days_of_supply").reset_index(drop=True)
 
+st.sidebar.divider()
+st.sidebar.markdown("**Legend**")
+st.sidebar.markdown("""
+<style>
+.leg-row { display:flex; align-items:flex-start; gap:8px; margin-bottom:10px; }
+.leg-dot { width:11px; height:11px; border-radius:50%; flex-shrink:0; margin-top:3px; }
+.leg-label { font-size:12px; font-weight:600; color:#E6E7E8; }
+.leg-desc { font-size:11px; color:#9a9b9c; line-height:1.4; margin-top:1px; }
+</style>
+<div class="leg-row">
+  <div class="leg-dot" style="background:#8B0C0C;"></div>
+  <div><div class="leg-label">Critical + shortage</div>
+  <div class="leg-desc">≤7 days supply with an active Health Canada shortage alert</div></div>
+</div>
+<div class="leg-row">
+  <div class="leg-dot" style="background:#E96A10;"></div>
+  <div><div class="leg-label">Critical</div>
+  <div class="leg-desc">≤7 days supply, no current shortage — order needed</div></div>
+</div>
+<div class="leg-row">
+  <div class="leg-dot" style="background:#7a6000;border:1px solid #a08000;"></div>
+  <div><div class="leg-label">Concern</div>
+  <div class="leg-desc">8–14 days supply — not yet critical, monitor closely</div></div>
+</div>
+<div class="leg-row">
+  <div class="leg-dot" style="background:#2A2A2A;border:1px solid #555;"></div>
+  <div><div class="leg-label">Untracked / N/A</div>
+  <div class="leg-desc">Qty not tracked or negative — supply cannot be calculated</div></div>
+</div>
+<div class="leg-row">
+  <div class="leg-dot" style="background:#3a3a3a;border:1px solid #666;"></div>
+  <div><div class="leg-label">Healthy</div>
+  <div class="leg-desc">&gt;14 days supply — no action needed</div></div>
+</div>
+""", unsafe_allow_html=True)
+
 # Apply same selections to full dataset for Tab 2
 full = df.copy()
 if region != "All":
