@@ -182,8 +182,8 @@ with tab1:
         shortage_flags = critical["shortage_active"].tolist()
 
         def highlight_critical(row):
-            color = "#8B0C0C" if shortage_flags[row.name] == 1 else ""
-            return [f"background-color: {color}" if color else "" for _ in row]
+            color = "#8B0C0C" if shortage_flags[row.name] == 1 else "#E96A10C3"
+            return [f"background-color: {color}" for _ in row]
 
         styled = display_df.style.apply(highlight_critical, axis=1)
 
