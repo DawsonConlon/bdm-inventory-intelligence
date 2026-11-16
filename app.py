@@ -11,7 +11,9 @@ st.set_page_config(page_title="BDM Inventory Intelligence", layout="wide")
 # ---------------------------------------------------------------------------
 # Auto-seed: create the database if it doesn't exist yet
 # ---------------------------------------------------------------------------
-DB_PATH = "data/bdm.db"
+# On Streamlit Cloud the repo is mounted read-only; fall back to /tmp.
+_data_dir = os.path.join(os.path.dirname(__file__), "data")
+DB_PATH = os.path.join(_data_dir, "bdm.db") if os.access(_data_dir, os.W_OK) else "/tmp/bdm.db"
 
 if not os.path.exists(DB_PATH    ):
     from data.seed import seed

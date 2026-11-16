@@ -14,7 +14,9 @@ from datetime import date, timedelta
 
 # bdm.db is created next to this script (data/bdm.db), no matter which folder
 # you run the script from. __file__ is the path of this script.
-DB_PATH = os.path.join(os.path.dirname(__file__), "bdm.db")
+# On Streamlit Cloud the repo is mounted read-only; fall back to /tmp.
+_local_db = os.path.join(os.path.dirname(__file__), "bdm.db")
+DB_PATH = _local_db if os.access(os.path.dirname(_local_db), os.W_OK) else "/tmp/bdm.db"
 
 # The "as of" date stamped on every inventory row and on the shortage lookup.
 # Dates are stored as ISO text (YYYY-MM-DD) because SQLite has no date type.
