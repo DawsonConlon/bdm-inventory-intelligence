@@ -1,11 +1,8 @@
 """
 BDM Inventory Intelligence — database seed script.
 
-Creates data/bdm.db from scratch, populates all 4 tables, and creates the
+Creates data/bdm.db from scratch, populates all tables, and creates the
 v_inventory_dashboard view. Idempotent: re-running drops and recreates everything.
-
-drug_alternatives are hardcoded with real Health Canada DINs sourced manually
-on 2026-11-11. The DPD REST API was returning empty responses at time of seeding.
 
 Run it with:  python data/seed.py
 """
@@ -34,7 +31,6 @@ def create_tables(conn: sqlite3.Connection) -> None:
     # wiped and rebuilt. "IF EXISTS" stops an error on the very first run.
     conn.executescript("""
         DROP TABLE IF EXISTS purchase_orders;
-        DROP TABLE IF EXISTS drug_alternatives;
         DROP TABLE IF EXISTS inventory_snapshots;
         DROP TABLE IF EXISTS drugs;
         DROP TABLE IF EXISTS sites;
@@ -108,19 +104,6 @@ def create_tables(conn: sqlite3.Connection) -> None:
             qty_on_hand_at_order   INTEGER             -- stock level when this order was placed; NULL for untracked/negative sites
         );
 
-        -- drug_alternatives: substitute drugs to consider when a primary drug runs low.
-        -- Many rows can point at the same primary drug (2 per drug here).
-        CREATE TABLE drug_alternatives (
-            alt_id                    INTEGER PRIMARY KEY AUTOINCREMENT,
-            primary_drug_id           TEXT    NOT NULL REFERENCES drugs(drug_id),
-            alt_generic_name          TEXT    NOT NULL,
-            alt_din                   TEXT,
-            alt_atc_code              TEXT,
-            alt_shortage_active       INTEGER NOT NULL DEFAULT 0,
-            alt_shortage_tier         TEXT,
-            alt_qty_on_hand_all_sites REAL,          -- total stock of the alternative across all sites
-            alt_availability          TEXT    NOT NULL  -- 'Available' / 'Limited' / 'Uncertain'
-        );
     """)
 
 
@@ -429,55 +412,6 @@ def seed_purchase_orders(conn: sqlite3.Connection) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Drug alternatives — hardcoded (see notes below)
-# ---------------------------------------------------------------------------
-
-# Alternatives with real Health Canada DINs sourced manually on 2026-11-11.
-# The DPD REST API was returning empty responses at time of seeding.
-# shortage_active is simulated (healthproductshortages.ca blocks automated access).
-# Carbachol flagged as also at risk to make the MIOCHOL-E shortage situation actionable.
-# Pilocarpine DIN 02213044 may be discontinued — flagged as Uncertain.
-# Insulin Detemir DIN 02271842 has anticipated discontinuation Dec 2025 — flagged as Limited.
-#
-# Tuple order: primary drug, alt name, alt DIN, alt ATC, alt shortage_active,
-#              alt shortage tier, total qty across all sites (simulated), availability.
-_ALTERNATIVES = [
-    # D1 — Acetylcholine Chloride alternatives (S01EB ophthalmic parasympathomimetics)
-    ("D1", "Carbachol",               "00042544", "S01EB02", 1, "Tier 2", 48,    "Limited"),
-    ("D1", "Pilocarpine",             "02213044", "S01EB01", 0, None,     320,   "Uncertain"),
-
-    # D2 — Hydromorphone HCl alternatives (N02AA natural opioid alkaloids)
-    ("D2", "Morphine",                "02302764", "N02AA01", 0, None,     12000, "Available"),
-    ("D2", "Oxycodone/Acetaminophen", "02324628", "N02AA05", 0, None,     8500,  "Available"),
-
-    # D3 — Atorvastatin alternatives (C10AA statins)
-    ("D3", "Rosuvastatin",            "02337991", "C10AA07", 0, None,     9200,  "Available"),
-    ("D3", "Simvastatin",             "02332000", "C10AA01", 0, None,     7800,  "Available"),
-
-    # D4 — Insulin Glargine alternatives (A10AE long-acting insulins)
-    ("D4", "Insulin Detemir",         "02271842", "A10AE05", 0, None,     24000, "Limited"),
-    ("D4", "Insulin Degludec",        "02467860", "A10AE06", 0, None,     18000, "Available"),
-
-    # D5 — Metoprolol alternatives (C07AB selective beta-blockers)
-    ("D5", "Bisoprolol",              "02302640", "C07AB07", 0, None,     11000, "Available"),
-    ("D5", "Atenolol",                "02266660", "C07AB03", 0, None,     6500,  "Available"),
-]
-
-
-def fetch_drug_alternatives(conn: sqlite3.Connection) -> None:
-    # Despite the name, nothing is fetched: this just inserts the hardcoded
-    # list above. (The name is left over from the plan to call the DPD API.)
-    conn.executemany(
-        """INSERT INTO drug_alternatives
-           (primary_drug_id, alt_generic_name, alt_din, alt_atc_code,
-            alt_shortage_active, alt_shortage_tier,
-            alt_qty_on_hand_all_sites, alt_availability)
-           VALUES (?,?,?,?,?,?,?,?)""",
-        _ALTERNATIVES,
-    )
-    print("Drug alternatives inserted.")
-
-
 # ---------------------------------------------------------------------------
 # Dashboard view
 # ---------------------------------------------------------------------------
@@ -536,7 +470,6 @@ def seed() -> None:
         insert_sites(conn)
         insert_drugs(conn)
         insert_inventory_snapshots(conn)
-        fetch_drug_alternatives(conn)
         seed_purchase_orders(conn)
         create_view(conn)
 
@@ -544,7 +477,7 @@ def seed() -> None:
         # we never reach this line.
         conn.commit()
         print(f"\nDatabase created: {DB_PATH}")
-        print("Tables: distributors, sites, drugs, inventory_snapshots, drug_alternatives, purchase_orders")
+        print("Tables: distributors, sites, drugs, inventory_snapshots, purchase_orders")
         print("View:   v_inventory_dashboard")
     except Exception:
         conn.rollback()  # undo any half-finished inserts

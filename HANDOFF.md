@@ -49,7 +49,7 @@ Files currently in the repo:
 - `.gitignore` — excludes `data/bdm.db`, `.DS_Store`, `__pycache__`
 - `data/seed.py` — database seed script (complete and working)
 - `app.py` — Streamlit UI (Pieces 3–5 — complete, tabs + procurement detail panel)
-- `data/seed.py` — now seeds 6 tables: distributors, sites, drugs, inventory_snapshots, drug_alternatives, purchase_orders (471 procurement rows)
+- `data/seed.py` — seeds 5 tables: distributors, sites, drugs, inventory_snapshots, purchase_orders (471 procurement rows)
 - `.streamlit/config.toml` — global theme: `#1F2123` background, `#2B2E31` sidebar, `#E6E7E8` text, `#F4A982` accent, `#90330B` shortage row highlight
 - `.claude/launch.json` — browser preview config for Claude Code desktop app
 
@@ -312,7 +312,7 @@ On first run, `app.py` auto-seeds the database if `data/bdm.db` is missing. Use 
 
 ### Remaining deliverables
 
-1. **Piece 6 (stretch)** — Alternatives panel in the UI (show `drug_alternatives` data for each critical row — which substitutes are available, which are under their own shortage).
+1. **Piece 6 (descoped)** — Drug alternatives panel removed from submission scope (Dawson, 2026-11-16). `drug_alternatives` table and all related seed code deleted. ATC codes remain on the `drugs` table to enable this feature in a future version. The concept: show whether substitute drugs are themselves under shortage, turning the shortage tier into actionable decision support.
 2. **Piece 7 (required)** — `writeup.md` explaining sources, what was simulated, data problems, and what's next. README. Final one-command run verification. Required deliverable per the brief.
 3. **Merge dev → main** — the challenge reviewer will clone main. Do not merge until Piece 7 is done.
 4. **ML forecasting vision (Dawson)** — `purchase_orders` table is the foundation. Future work: lead-time prediction, reorder-point optimization, demand forecast. Not in scope for this challenge.

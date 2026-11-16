@@ -456,4 +456,19 @@ Order Date | Distributor | Qty on Hand | Days Since Last Order | Units Used | Qt
 
 **Pushed to GitHub dev branch by Dawson — 2026-11-16**
 
+---
+
+#### Decision — Remove `drug_alternatives` table (2026-11-16)
+
+Dawson decided to descope the drug_alternatives feature from the submission version of the tool. The table was designed, seeded with 10 real Canadian DINs, and documented, but was never wired into the UI. All `drug_alternatives` code has been removed from `data/seed.py`:
+- `DROP TABLE IF EXISTS drug_alternatives` removed from schema
+- `CREATE TABLE drug_alternatives` block removed
+- `_ALTERNATIVES` data list removed
+- `fetch_drug_alternatives()` function removed
+- Call to `fetch_drug_alternatives(conn)` removed from `seed()`
+
+The database now seeds 5 tables: distributors, sites, drugs, inventory_snapshots, purchase_orders.
+
+The underlying idea remains valid and Dawson intends to implement it in a future version: showing whether substitute drugs are themselves under shortage or supply constraint turns the shortage tier from a static label into actionable decision support. The ATC codes are still stored on the `drugs` table, which will enable this lookup when the feature is revisited.
+
 <!-- Add new days below this line in the same format -->

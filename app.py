@@ -13,12 +13,12 @@ st.set_page_config(page_title="BDM Inventory Intelligence", layout="wide")
 # ---------------------------------------------------------------------------
 DB_PATH = "data/bdm.db"
 
-if not os.path.exists(DB_PATH):
+if not os.path.exists(DB_PATH    ):
     from data.seed import seed
     seed()
 
 # ---------------------------------------------------------------------------
-# Data loading — cached for the session
+# Data loading — cached for the session 
 # ---------------------------------------------------------------------------
 @st.cache_data
 def load_data():
