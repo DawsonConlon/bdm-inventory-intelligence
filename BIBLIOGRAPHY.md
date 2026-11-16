@@ -21,3 +21,9 @@ Schlenker, R., et al. (2016). *Cataract surgery volume and OR throughput benchma
 Canadian Journal of Health Technologies. (2021). *Drug utilization and appropriateness in Canadian hospitals*. Canadian Agency for Drugs and Technologies in Health. https://www.canjhealthtechnol.ca/index.php/cjht/article/download/AU0001/3545
 
 U.S. Food and Drug Administration. (2026). *National Drug Code (NDC) directory*. openFDA. https://open.fda.gov/data/ndc/
+
+McKesson Canada. (2026). *Hospital pharmacy distribution services*. McKesson Canada. https://www.mckesson.ca
+
+Cardinal Health Canada. (2026). *Hospital and specialty distribution*. Cardinal Health Canada. https://www.cardinalhealth.ca
+
+Innomar Strategies. (2026). *Specialty drug distribution and patient support*. Innomar Strategies. https://www.innomar.com
