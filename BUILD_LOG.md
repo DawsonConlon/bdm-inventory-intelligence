@@ -429,4 +429,31 @@ Fix:
 #### Open Questions
 - None — both bugs resolved
 
+---
+
+#### Feature — Procurement History: Qty on Hand, Days Since Last Order, Units Used
+
+**Data architecture:**
+- Added `qty_on_hand_at_order INTEGER` column to `purchase_orders` table in `data/seed.py`
+- Added `_SNAPSHOT_QTY` lookup dict (mirrors `inventory_snapshots` qty values; `None` for untracked/negative sites D1/S05 and D2/S04)
+- Backfill logic: forward walk from opening stock of `avg_daily × order_freq × 2` (2 order cycles). For each order, record current stock, then advance: `running_qty = running_qty + qty_ordered - days_to_next_order × avg_daily`. Forward walk chosen over backwards walk because critically low snapshot items (e.g. D1/S01 at 32 vials) caused the backwards walk to immediately go negative and clamp to zero.
+- 471 rows re-seeded cleanly. Zero counts verified: none.
+
+**UI additions (Tab 1 — procurement panel):**
+- `Qty on Hand` — stock at time of order, formatted with commas; "—" for untracked/negative sites
+- `Days Since Last Order` — integer days between this order and the prior one; "—" for the oldest visible row
+- `Units Used` — `qty_on_hand[prev] + qty_ordered[prev] − qty_on_hand[current]`, formatted with commas; "—" for oldest visible row or untracked sites
+- `Qty Ordered` — now formatted with commas (was plain integer)
+- `Days to Delivery` — renamed from "Lead (days)"; shows "—" for in_transit orders since delivery has not occurred yet
+
+**Column order in final table:**
+Order Date | Distributor | Qty on Hand | Days Since Last Order | Units Used | Qty Ordered | Unit Cost ($) | Days to Delivery | Status
+
+**Decisions made:**
+- Forward walk over backwards walk — Dawson confirmed after seeing backwards walk produce all-zero results for critically low items
+- "Days to Delivery" rename and "—" for in_transit — Dawson's direction
+- Column names approved by Dawson before implementation
+
+**Pushed to GitHub dev branch by Dawson — 2026-11-16**
+
 <!-- Add new days below this line in the same format -->

@@ -293,6 +293,8 @@ On first run, `app.py` auto-seeds the database if `data/bdm.db` is missing. Use 
 - Geography sidebar filters cascade correctly and include all sites (Calgary now visible) — bug fixed Day 6
 - Sidebar legend: Untracked dot now mid-grey (#5A5A5A), Healthy dot matches sidebar background (#2B2E31) — bug fixed Day 6
 - "View procurement history for:" selectbox — pick any drug/site, shows avg lead time, avg unit cost, 5 most recent POs
+- Procurement table columns: Order Date | Distributor | Qty on Hand | Days Since Last Order | Units Used | Qty Ordered | Unit Cost ($) | Days to Delivery | Status
+- Days to Delivery shows "—" for in_transit orders; oldest visible row shows "—" for Days Since Last Order and Units Used
 - Tab 2 (Full Inventory): all 25 rows, same geography filters, color-coded by alert level; untracked rows #3A3A3A
 - Theme: #1F2123 background, #E6E7E8 text, #F4A982 warm peach accent (Dawson's final values)
 
@@ -307,14 +309,6 @@ On first run, `app.py` auto-seeds the database if `data/bdm.db` is missing. Use 
 - Healthy: no color (default background)
 
 ## Open Items for Next Session
-
-### Feature to add (Day 6 — open)
-
-**Procurement history: Qty on Hand at Order + Units Used columns:**
-Add two columns to the 5-most-recent-orders table in the Tab 1 procurement detail panel:
-- **Qty on Hand at Order** — inventory recorded for that drug/site at the time the order was placed. Not currently in `purchase_orders`; options: (a) add a `qty_on_hand_at_order` column to the seed script and backfill simulated values, or (b) use the current `inventory_snapshots` value as a proxy (less accurate but simpler). Decide with Dawson before coding.
-- **Units Used (since prior order)** — units consumed between this order and the previous order for the same drug/site. Can be derived at query time: `avg_daily_usage_7d × days_since_prior_order`. No schema change needed if calculated approach is chosen.
-User story: "This is how much we had — this is how much we used — this is how much we ordered."
 
 ### Remaining deliverables
 
