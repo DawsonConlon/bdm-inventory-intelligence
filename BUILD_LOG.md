@@ -357,4 +357,32 @@ Researched 2026-11-11. Sources: WHO ATC/DDD Index, Canadian Journal of Hospital 
 - Final color for critical (no shortage) rows — `#0980DB78` intentional or still experimenting?
 - Legend implementation deferred to next session pending Dawson's color confirmation
 
+---
+
+### Day 4 — 2026-11-15
+
+#### Planned
+- Finalize Full Inventory highlight colors
+- Implement sidebar legend with colored swatches and plain-language descriptions
+- Clean up column headers
+- Remove stale Tab 2 caption
+
+#### Accomplished
+- **Color finalization (Dawson):**
+  - Critical + shortage: `#8B0C0C` (deep maroon) — confirmed final
+  - Critical (no shortage): changed from `#0980DB78` (semi-transparent blue) to `#E96A10C3` (orange) — Dawson flagged blue was visually indistinguishable from "healthy" in a clinical context
+  - Concern: `#4A3800` unchanged
+  - Untracked/negative: `#2A2A2A` unchanged
+- **Sidebar legend implemented** — replaced the stale text caption in Tab 2 with a sidebar legend containing colored dot swatches and plain-language operational descriptions for each alert tier (Critical + shortage, Critical, Concern, Untracked/N/A, Healthy)
+- **Column headers cleaned up** — removed time window suffixes: `Daily Usage (7d)` → `Daily Usage`, `Weekly Usage (7d)` → `Weekly Usage`, `Monthly Usage (30d)` → `Monthly Usage` across both tabs (8 occurrences)
+- **Stale Tab 2 caption removed** — the old `st.caption("Critical + shortage: dark orange | ...")` line was inaccurate and superseded by the sidebar legend
+- All changes committed and pushed to dev branch
+
+#### Decisions Made
+- Orange (`#E96A10C3`) for critical rows without a shortage — better clinical intuition than blue
+- Sidebar legend placement (below geography filters) — Dawson's preferred location
+
+#### Open Questions
+- None — Day 4 UI work complete
+
 <!-- Add new days below this line in the same format -->

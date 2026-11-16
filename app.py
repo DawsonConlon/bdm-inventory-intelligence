@@ -300,7 +300,3 @@ with tab2:
         styled_full = display_full.style.apply(highlight_full, axis=1)
         st.dataframe(styled_full, width="stretch", hide_index=True)
 
-        st.caption(
-            "Critical + shortage: dark orange  |  Critical: dark red  |  "
-            "Concern: dark amber  |  Untracked/negative: grey"
-        )
