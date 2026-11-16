@@ -124,6 +124,33 @@ st.sidebar.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+st.sidebar.divider()
+st.sidebar.markdown("**Health Canada Shortage Tiers**")
+st.sidebar.markdown("""
+<style>
+.tier-row { display:flex; align-items:flex-start; gap:8px; margin-bottom:10px; }
+.tier-badge { font-size:10px; font-weight:700; color:#E6E7E8; background:#5A1A1A; border:1px solid #8B0C0C; border-radius:3px; padding:1px 5px; flex-shrink:0; margin-top:2px; white-space:nowrap; }
+.tier-label { font-size:12px; font-weight:600; color:#E6E7E8; }
+.tier-desc { font-size:11px; color:#9a9b9c; line-height:1.4; margin-top:1px; }
+</style>
+<div class="tier-row">
+  <div class="tier-badge">Tier 1</div>
+  <div><div class="tier-label">Manageable</div>
+  <div class="tier-desc">Supply is interrupted but alternatives exist and patient care is not expected to be impacted</div></div>
+</div>
+<div class="tier-row">
+  <div class="tier-badge">Tier 2</div>
+  <div><div class="tier-label">Serious</div>
+  <div class="tier-desc">Shortage may impact patient care; alternatives may be limited or require protocol changes</div></div>
+</div>
+<div class="tier-row">
+  <div class="tier-badge">Tier 3</div>
+  <div><div class="tier-label">Critical</div>
+  <div class="tier-desc">Shortage will likely impact patient care; no suitable alternatives or all alternatives are also constrained</div></div>
+</div>
+<div style="font-size:10px;color:#6a6b6c;margin-top:4px;">Source: Health Product Shortages Canada — healthproductshortages.ca</div>
+""", unsafe_allow_html=True)
+
 # Apply same selections to full dataset for Tab 2
 full = df.copy()
 if region != "All":
@@ -165,9 +192,9 @@ with tab1:
     if critical.empty:
         st.info("No critical items match the current filters.")
     else:
-        critical["Drug"] = critical.apply(
-            lambda r: f"{r['generic_name']} [{r['shortage_tier']}]"
-            if r["shortage_active"] == 1 else r["generic_name"],
+        critical["Drug"] = critical["generic_name"]
+        critical["Shortage"] = critical.apply(
+            lambda r: r["shortage_tier"] if r["shortage_active"] == 1 else "None",
             axis=1,
         )
         critical["Days of Supply"] = critical["days_of_supply"].map(
@@ -184,7 +211,7 @@ with tab1:
         )
 
         display_df = critical[[
-            "Drug", "site_name", "province", "display_qty",
+            "Drug", "Shortage", "site_name", "province", "display_qty",
             "Daily Usage", "Weekly Usage", "Monthly Usage",
             "Days of Supply",
         ]].rename(columns={
@@ -203,8 +230,6 @@ with tab1:
 
         st.dataframe(styled, width="stretch", hide_index=True)
 
-        if int(critical["shortage_active"].sum()) > 0:
-            st.caption("Highlighted rows have an active drug shortage.")
 
         # ---------------------------------------------------------------
         # Procurement detail panel — driven by a selectbox
@@ -300,9 +325,9 @@ with tab2:
     if full.empty:
         st.info("No items match the current filters.")
     else:
-        full["Drug"] = full.apply(
-            lambda r: f"{r['generic_name']} [{r['shortage_tier']}]"
-            if r["shortage_active"] == 1 else r["generic_name"],
+        full["Drug"] = full["generic_name"]
+        full["Shortage"] = full.apply(
+            lambda r: r["shortage_tier"] if r["shortage_active"] == 1 else "None",
             axis=1,
         )
         full["Days of Supply"] = full["days_of_supply"].map(
@@ -319,7 +344,7 @@ with tab2:
         )
 
         display_full = full[[
-            "Drug", "site_name", "city", "province", "display_qty",
+            "Drug", "Shortage", "site_name", "city", "province", "display_qty",
             "Daily Usage", "Weekly Usage", "Monthly Usage",
             "Days of Supply", "alert_level",
         ]].rename(columns={
