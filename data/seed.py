@@ -6,20 +6,19 @@ v_inventory_dashboard view. Idempotent: re-running drops and recreates everythin
 
 Run it with:  python data/seed.py
 """
-
+# import libraries
 import os
 import random
 import sqlite3
 from datetime import date, timedelta
 
-# bdm.db is created next to this script (data/bdm.db), no matter which folder
-# you run the script from. __file__ is the path of this script.
-# On Streamlit Cloud the repo is mounted read-only; fall back to /tmp.
+#define the path
+#_file_ is the file path
+# bdm.db is a SQLite database that gets created if does not exsist
 _local_db = os.path.join(os.path.dirname(__file__), "bdm.db")
 DB_PATH = _local_db if os.access(os.path.dirname(_local_db), os.W_OK) else "/tmp/bdm.db"
 
-# The "as of" date stamped on every inventory row and on the shortage lookup.
-# Dates are stored as ISO text (YYYY-MM-DD) because SQLite has no date type.
+# this is the date that will be displayed on the front end
 SNAPSHOT_DATE = "2026-11-11"
 
 
@@ -28,9 +27,20 @@ SNAPSHOT_DATE = "2026-11-11"
 # ---------------------------------------------------------------------------
 
 def create_tables(conn: sqlite3.Connection) -> None:
-    # executescript() runs several SQL statements in one call.
-    # The DROPs come first so the script can be re-run safely: old tables are
-    # wiped and rebuilt. "IF EXISTS" stops an error on the very first run.
+    '''
+    Creates all the database tables and the dashboard tables that will be seen in the streamlit dashboard front end
+    
+    Drops tables in before recreating them so the script can be re run easily
+    
+     Parameters
+        conn : sqlite3.Connection
+            An open connection to the SQLite database file.
+    
+        Returns
+        None
+    
+    '''
+    
     conn.executescript("""
         DROP TABLE IF EXISTS purchase_orders;
         DROP TABLE IF EXISTS inventory_snapshots;
@@ -114,6 +124,19 @@ def create_tables(conn: sqlite3.Connection) -> None:
 # ---------------------------------------------------------------------------
 
 def insert_sites(conn: sqlite3.Connection) -> None:
+    
+    '''
+    Inserts the 5 hospital pharmacy sites into the sites table
+    
+     Parameters
+        conn : sqlite3.Connection
+            An open connection to the SQLite database file.
+    
+        Returns
+        None
+    
+    '''
+    
     # Each tuple is one row, in the same column order as the sites table.
     rows = [
         ("S01", "Royal University Hospital Pharmacy",    "Saskatoon", "SK", "Prairies"),
@@ -136,11 +159,27 @@ def insert_sites(conn: sqlite3.Connection) -> None:
 # ---------------------------------------------------------------------------
 
 def insert_drugs(conn: sqlite3.Connection) -> None:
-    # Column order: id, generic, brand, DIN, ATC, shortage_active, tier,
-    # report_id, start, end, lookup_date, notes.
-    # None becomes NULL in the database (used when there is no shortage).
+    
+    """
+    insert the five drugs into the drug table
+    
+     shortage data was sourced from healthproductshortages.ca on 2026-11-11
+     
+     drugs that do not have a shortage are we'll have a value of None
+     
+      Parameters
+         conn : sqlite3.Connection
+             An open connection to the SQLite database file.
+     
+         Returns
+         None
+    
+    """
+    
     rows = [
-        # D1 is the only drug with a real, active shortage (the story of the demo).
+        
+        #the Meta data for the drugs along with the tear they have
+        
         (
             "D1", "Acetylcholine Chloride", "MIOCHOL-E", "02133326", "S01EB",
             1, "Tier 3", "272933", "2025-12-04", "2027-02-05", SNAPSHOT_DATE,
@@ -174,27 +213,54 @@ def insert_drugs(conn: sqlite3.Connection) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Inventory snapshots — all 25 rows approved by Dawson on 2026-11-11
+# Inventory snapshots
 # ---------------------------------------------------------------------------
 
 def _snap(site_id, drug_id, qty, avg7, avg30, days, alert, tracking, unit):
-    """Build one snapshot row. Handles N/A display and NULL days."""
-    # The leading underscore is a Python convention meaning "internal helper,
-    # only used inside this file".
-    #
-    # Two kinds of rows can't be trusted for a days-of-supply number:
-    #   untracked: the site doesn't track this drug, so qty is None.
-    #   negative:  the site reported a negative quantity (a data error).
-    # For both we show "N/A" and store NULL for days_of_supply, so the
-    # dashboard never displays a misleading number.
+    """
+    Build one inventory_snapshots row tuple
+
+    Handles display formatting and NULL logic for untracked and negative
+    stock sites so the dashboard never shows a misleading days-of-supply value.
+
+    Parameters
+    ----------
+    site_id : str
+        Foreign key to sites table, e.g. 'S01'.
+    drug_id : str
+        Foreign key to drugs table, e.g. 'D1'.
+    qty : float or None
+        Raw quantity on hand. None for untracked; negative values are valid inputs.
+    avg7 : float
+        Average daily usage over the last 7 days.
+    avg30 : float
+        Average daily usage over the last 30 days.
+    days : float or None
+        Pre-calculated days of supply (qty / avg7). Pass None for untracked/negative.
+    alert : str
+        Alert level — 'critical', 'concern', 'none', or 'untracked'.
+    tracking : str
+        Tracking status — 'tracked', 'untracked', or 'negative'.
+    unit : str
+        Canonical dispensing unit label, e.g. 'vials', 'tablets', 'IU'.
+
+    Returns
+    -------
+    tuple
+        One row in the column order expected by insert_inventory_snapshots()
+    
+    """
+    
+    #display N/A for untracked and negative values
     if tracking in ("untracked", "negative"):
         display = "N/A"
         days_val = None
         qty_val = qty  # preserves NULL or negative as-is
+        
     else:
         qty_val = qty
         days_val = days
-        # Format qty with commas; integers only (all our values are whole numbers)
+        # Format qty with commas
         # e.g. 7700 -> "7,700 tablets"
         display = f"{int(qty):,} {unit}"
     # Tuple order must match the column list in insert_inventory_snapshots().
@@ -202,13 +268,29 @@ def _snap(site_id, drug_id, qty, avg7, avg30, days, alert, tracking, unit):
 
 
 def insert_inventory_snapshots(conn: sqlite3.Connection) -> None:
-    # Arguments to _snap: site, drug, qty, avg 7d usage, avg 30d usage,
-    #                     days of supply, alert level, tracking status, unit.
-    #
-    # days_of_supply was calculated by hand as qty / avg 7-day usage, and the
-    # alert level follows these cutoffs: critical <= 7 days, concern < 15 days,
-    # none >= 15 days. Each drug is deliberately seeded with a mix of levels
-    # so the dashboard has something interesting to show.
+    '''
+    Insert all 25 inventory snapshot rows into the inventory_snapshots table.
+
+    One row per site/drug combination (5 sites × 5 drugs). Values were
+    researched and approved by Dawson on 2026-11-11. Alert levels follow
+    these cutoffs:
+        critical  : ≤ 7 days of supply
+        concern   : 8–14 days of supply
+        none      : ≥ 15 days of supply
+        untracked : qty is NULL or negative — days of supply cannot be calculated
+
+    Each drug is seeded with a deliberate mix of alert levels across its 5 sites
+    so the dashboard demonstrates all meaningful inventory states.
+
+    Parameters
+    ----------
+    conn : sqlite3.Connection
+        An open connection to the SQLite database file.
+
+    Returns
+    -------
+    None
+    '''
     rows = [
         # D1 — Acetylcholine Chloride (vials) — Active Shortage Tier 3
         _snap("S01","D1", 32,   8,    7,    4.0,  "critical",  "tracked",   "vials"),
@@ -238,7 +320,7 @@ def insert_inventory_snapshots(conn: sqlite3.Connection) -> None:
         _snap("S04","D4", 14000, 1400, 1400, 10.0, "concern",  "tracked",   "IU"),
         _snap("S05","D4", 7200,  1200, 1100, 6.0,  "critical", "tracked",   "IU"),
 
-        # D5 — Metoprolol (tablets) — No Shortage
+        # D5 — Metoprolol (tablets) — Active Shortage Tier 2
         _snap("S01","D5", 2250, 150,  145,  15.0, "none",      "tracked",   "tablets"),
         _snap("S02","D5", 1920, 160,  155,  12.0, "concern",   "tracked",   "tablets"),
         _snap("S03","D5", 980,  140,  130,  7.0,  "critical",  "tracked",   "tablets"),
@@ -262,6 +344,22 @@ def insert_inventory_snapshots(conn: sqlite3.Connection) -> None:
 # ---------------------------------------------------------------------------
 
 def insert_distributors(conn: sqlite3.Connection) -> None:
+    
+    """
+    
+    Insert the three Canadian hospital drug distributors into the distributor table
+    
+    distributors are classified as national which would ship abroad number of drugs across the country
+    and then there's specialty Witch focus on complex high cost hard to handle drugs
+      
+    Parameters
+       conn : sqlite3.Connection
+           An open connection to the SQLite database file.
+   
+       Returns
+       None
+    
+    """
     rows = [
         ("DIST01", "McKesson Canada",       "National",  "hospital.orders@mckesson.ca"),
         ("DIST02", "Cardinal Health Canada", "National",  "hospital.supply@cardinalhealth.ca"),
@@ -272,7 +370,7 @@ def insert_distributors(conn: sqlite3.Connection) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Purchase orders — 6 months generated programmatically (May–Nov 2026)
+# Purchase orders — 6 months generated programmatically (May–Nov 2026) with AI
 # ---------------------------------------------------------------------------
 
 # Lead time ranges (min, max) in days per distributor
@@ -317,6 +415,33 @@ _SNAPSHOT_QTY = {
 
 
 def seed_purchase_orders(conn: sqlite3.Connection) -> None:
+    
+    '''
+    Generate and insert 6 months of purchase order history into the purchase_orders table.
+
+    Orders run from 2026-05-12 to the snapshot date of 2026-11-11, one sequence
+    per site/drug combination (25 pairs × ~19 orders each ≈ 471 rows total).
+    A fixed random seed (42) ensures the same data is generated on every run.
+
+    Order frequency, cost range, and distributor assignment are driven by
+    _DRUG_ORDER_PROFILE. Sites S03 and S05 have a regional distributor override
+    for non-D1 drugs (Cardinal Health preferred over McKesson).
+
+    qty_on_hand_at_order is computed with a forward walk rather than a backwards
+    walk. The backwards walk broke for critically low items (e.g. D1/S01 has only
+    32 vials at snapshot, which went immediately negative when subtracting a full
+    delivery). The forward walk opens at 2 order cycles of stock and advances
+    through each order chronologically.
+
+    Parameters conn : sqlite3.Connection
+        An open connection to the SQLite database file.
+
+    Returns
+    None
+    '''
+    
+    
+    
     rng = random.Random(42)  # fixed seed = reproducible data every run
     start = date(2026, 5, 12)
     today = date(2026, 11, 11)  # snapshot date
@@ -339,16 +464,20 @@ def seed_purchase_orders(conn: sqlite3.Connection) -> None:
             pair_orders = []
             order_date = start
             while order_date <= today:
+                #80% chance of using primary distributor 20% chance of using secondary
                 dist_id = primary_dist if rng.random() < 0.80 else secondary_dist
 
                 lead_lo, lead_hi = _DIST_LEAD[dist_id]
                 lead_days = rng.randint(lead_lo, lead_hi)
                 delivery_date = order_date + timedelta(days=lead_days)
 
+                #quantities vary plus or -30% around the standard order size
                 buffer = rng.uniform(0.90, 1.30)
                 qty = max(1, round(avg_daily * freq_days * buffer))
                 unit_cost = round(rng.uniform(cost_lo, cost_hi), 4)
 
+                
+                #status is determined by whether delivery falls before or after snapshot date
                 if delivery_date <= today:
                     status = "delivered"
                 elif order_date <= today:
@@ -372,12 +501,14 @@ def seed_purchase_orders(conn: sqlite3.Connection) -> None:
                 jitter = rng.randint(-2, 2)
                 order_date += timedelta(days=freq_days + jitter)
 
-            # Compute qty_on_hand_at_order by walking forward from an opening
-            # stock of 2 order cycles. This avoids the backwards-walk breaking
-            # for critically low items (e.g. D1/S01 snapshot = 32 vials).
-            # Formula: at each order, record current stock, then advance:
-            #   running_qty = running_qty + qty_ordered - days_to_next * avg_daily
-            # For untracked/negative sites the column stays NULL.
+            
+            # --- qty_on_hand_at_order ---
+            # Untracked/negative sites (D1/S05, D2/S04) get NULL — no stock figure to walk from.
+            # All other pairs walk forward chronologically from an opening stock of 2 order cycles:
+            #   opening = avg_daily × freq_days × 2
+            # At each order: record current stock, then advance:
+            #   running_qty = running_qty + qty_ordered - days_to_next_order × avg_daily
+            
             if _SNAPSHOT_QTY[(site_id, drug_id)] is None:
                 for o in pair_orders:
                     o["qty_on_hand_at_order"] = None
@@ -419,10 +550,28 @@ def seed_purchase_orders(conn: sqlite3.Connection) -> None:
 # ---------------------------------------------------------------------------
 
 def create_view(conn: sqlite3.Connection) -> None:
-    # A VIEW is a saved query that behaves like a read-only table. It stitches
-    # inventory + site + drug info into one flat table so the Streamlit app
-    # can run a simple "SELECT * FROM v_inventory_dashboard" and never has to
-    # write JOINs itself. It stores no data of its own, so it is always current.
+    
+    
+    """
+    Create the v_inventory_dashboard view.
+
+    This view joins inventory_snapshots, sites, and drugs into a single flat
+    table so the Streamlit app can query all dashboard data with a simple
+    SELECT * FROM v_inventory_dashboard without writing any JOINs itself.
+
+    The view stores no data — it is a saved query that runs against the
+    underlying tables at read time, so it always reflects the current state
+    of the database.
+
+    Parameters
+    conn : sqlite3.Connection
+        An open connection to the SQLite database file.
+
+    Returns
+    None
+    """
+    
+   
     conn.execute("""
         CREATE VIEW v_inventory_dashboard AS
         SELECT
@@ -458,6 +607,27 @@ def create_view(conn: sqlite3.Connection) -> None:
 # ---------------------------------------------------------------------------
 
 def seed() -> None:
+    
+    
+    """
+    Build the database from scratch and populate all tables.
+
+    Creates data/bdm.db (or /tmp/bdm.db on Streamlit Cloud), drops and
+    recreates all tables, inserts all seed data, and creates the dashboard
+    view. The entire operation runs inside a single transaction — if any
+    step fails, all changes are rolled back and the database is left clean.
+
+    Called automatically by app.py on first run if bdm.db does not exist.
+    Can also be triggered manually by deleting bdm.db and restarting the app,
+    or by running this file directly:
+
+        python data/seed.py
+
+    Returns
+    -------
+    None
+    """
+    
     # Make sure the data/ folder exists before SQLite tries to create a file in it.
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
