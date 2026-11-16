@@ -192,9 +192,9 @@ with tab1:
     if critical.empty:
         st.info("No critical items match the current filters.")
     else:
-        critical["Drug"] = critical.apply(
-            lambda r: f"{r['generic_name']} [{r['shortage_tier']}]"
-            if r["shortage_active"] == 1 else r["generic_name"],
+        critical["Drug"] = critical["generic_name"]
+        critical["Shortage"] = critical.apply(
+            lambda r: r["shortage_tier"] if r["shortage_active"] == 1 else "None",
             axis=1,
         )
         critical["Days of Supply"] = critical["days_of_supply"].map(
@@ -211,7 +211,7 @@ with tab1:
         )
 
         display_df = critical[[
-            "Drug", "site_name", "province", "display_qty",
+            "Drug", "Shortage", "site_name", "province", "display_qty",
             "Daily Usage", "Weekly Usage", "Monthly Usage",
             "Days of Supply",
         ]].rename(columns={
@@ -230,8 +230,6 @@ with tab1:
 
         st.dataframe(styled, width="stretch", hide_index=True)
 
-        if int(critical["shortage_active"].sum()) > 0:
-            st.caption("Highlighted rows have an active drug shortage.")
 
         # ---------------------------------------------------------------
         # Procurement detail panel — driven by a selectbox
@@ -327,9 +325,9 @@ with tab2:
     if full.empty:
         st.info("No items match the current filters.")
     else:
-        full["Drug"] = full.apply(
-            lambda r: f"{r['generic_name']} [{r['shortage_tier']}]"
-            if r["shortage_active"] == 1 else r["generic_name"],
+        full["Drug"] = full["generic_name"]
+        full["Shortage"] = full.apply(
+            lambda r: r["shortage_tier"] if r["shortage_active"] == 1 else "None",
             axis=1,
         )
         full["Days of Supply"] = full["days_of_supply"].map(
@@ -346,7 +344,7 @@ with tab2:
         )
 
         display_full = full[[
-            "Drug", "site_name", "city", "province", "display_qty",
+            "Drug", "Shortage", "site_name", "city", "province", "display_qty",
             "Daily Usage", "Weekly Usage", "Monthly Usage",
             "Days of Supply", "alert_level",
         ]].rename(columns={

@@ -163,8 +163,8 @@ def insert_drugs(conn: sqlite3.Connection) -> None:
         ),
         (
             "D5", "Metoprolol", "Lopressor", "00648051", "C07AB02",
-            0, None, None, None, None, None,
-            "Common cardiac beta-blocker.",
+            1, "Tier 2", None, "2026-09-15", "2027-03-01", SNAPSHOT_DATE,
+            "Common cardiac beta-blocker. Serious supply disruption; alternatives may require protocol changes.",
         ),
     ]
     conn.executemany(
