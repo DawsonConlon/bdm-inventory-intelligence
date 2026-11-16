@@ -111,12 +111,12 @@ st.sidebar.markdown("""
   <div class="leg-desc">8–14 days supply: Not yet critical, monitor closely</div></div>
 </div>
 <div class="leg-row">
-  <div class="leg-dot" style="background:#2A2A2A;border:1px solid #555;"></div>
+  <div class="leg-dot" style="background:#5A5A5A;border:1px solid #888;"></div>
   <div><div class="leg-label">Untracked / N/A</div>
   <div class="leg-desc">Qty not tracked or negative: Supply cannot be calculated</div></div>
 </div>
 <div class="leg-row">
-  <div class="leg-dot" style="background:#3a3a3a;border:1px solid #666;"></div>
+  <div class="leg-dot" style="background:#2B2E31;border:1px solid #444;"></div>
   <div><div class="leg-label">Healthy</div>
   <div class="leg-desc">&gt;14 days supply: No action needed</div></div>
 </div>
@@ -303,7 +303,7 @@ with tab2:
             elif level == "concern":
                 color = "#4A3800"
             elif level == "untracked":
-                color = "#2A2A2A"
+                color = "#3A3A3A"
             else:
                 color = ""
             return [f"background-color: {color}" if color else "" for _ in row]
