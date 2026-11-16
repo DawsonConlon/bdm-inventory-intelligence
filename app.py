@@ -252,7 +252,7 @@ with tab2:
             if level == "critical" and shortage == 1:
                 color = "#8B0C0C"
             elif level == "critical":
-                color = "#0980DB78"
+                color = "#E96A10C3"
             elif level == "concern":
                 color = "#4A3800"
             elif level == "untracked":
