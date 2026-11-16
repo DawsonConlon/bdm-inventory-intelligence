@@ -3,3 +3,4 @@ data/bdm.db
 .Rhistory
 __pycache__/
 *.pyc
+.claude/
