@@ -308,6 +308,25 @@ On first run, `app.py` auto-seeds the database if `data/bdm.db` is missing. Use 
 
 ## Open Items for Next Session
 
+### Bugs to fix (Day 6)
+
+**Bug 1 — Geography filter missing Calgary (and any site with no critical items):**
+Root cause: the sidebar filter dropdowns (Region → Province → City → Site) are built from the `critical` DataFrame, which only contains rows where `alert_level = 'critical'`. Calgary/S02 has no critical rows, so it is absent from the city and site dropdowns entirely. This also means Tab 2 (Full Inventory) cannot be filtered to Calgary because it inherits the same sidebar selections.
+Fix: populate filter options from the full `df` (all 25 rows), not from the pre-filtered `critical` subset. Apply the selected values to both `critical` and `full` after the filters are set.
+
+**Bug 2 — Healthy vs. Untracked legend dots visually indistinguishable:**
+The sidebar legend uses `#3a3a3a` (border `#666`) for Healthy and `#2A2A2A` (border `#555`) for Untracked/N/A. On the `#1F2123` dark background these two dots look nearly identical. Need to investigate and either confirm the visual difference is acceptable or redesign — e.g. a visible mid-grey for Untracked vs. nothing/background-tone for Healthy. Actual row highlight colors in Tab 2 are also affected (`#2A2A2A` for untracked, no color for healthy — confirm these are clearly distinct in-table too).
+
+### Feature to add (Day 6)
+
+**Procurement history: Qty on Hand at Order + Units Used columns:**
+Add two columns to the 5-most-recent-orders table in the Tab 1 procurement detail panel:
+- **Qty on Hand at Order** — inventory recorded for that drug/site at the time the order was placed. Not currently in `purchase_orders`; options: (a) add a `qty_on_hand_at_order` column to the seed script and backfill simulated values, or (b) use the current `inventory_snapshots` value as a proxy (less accurate but simpler). Decide with Dawson before coding.
+- **Units Used (since prior order)** — units consumed between this order and the previous order for the same drug/site. Can be derived at query time: `avg_daily_usage_7d × days_since_prior_order`. No schema change needed if calculated approach is chosen.
+User story: "This is how much we had — this is how much we used — this is how much we ordered."
+
+### Remaining deliverables
+
 1. **Piece 6 (stretch)** — Alternatives panel in the UI (show `drug_alternatives` data for each critical row — which substitutes are available, which are under their own shortage).
 2. **Piece 7 (required)** — `writeup.md` explaining sources, what was simulated, data problems, and what's next. README. Final one-command run verification. Required deliverable per the brief.
 3. **Merge dev → main** — the challenge reviewer will clone main. Do not merge until Piece 7 is done.

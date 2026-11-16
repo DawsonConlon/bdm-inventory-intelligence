@@ -401,4 +401,23 @@ Researched 2026-11-11. Sources: WHO ATC/DDD Index, Canadian Journal of Hospital 
 #### Open Questions
 - None
 
+---
+
+### Day 6 — 2026-11-16 (planned)
+
+#### Planned
+
+**Bug 1 — Geography filter missing Calgary:**
+The cascading sidebar filters (Region → Province → City → Site) are populated dynamically from the `critical` DataFrame (alert_level = 'critical' rows). Calgary/S02 has no critical items in the current snapshot data, so it never appears in the city or site dropdowns — but Calgary rows do appear in Tab 2 (Full Inventory). The bug: Tab 2 uses the same geography filter selections that were built from the critical subset, so a user can never filter Tab 2 to Calgary-only. Fix: build the geography filter options from the full dataset (`df`), not from the already-filtered `critical` subset. Apply the selected filters to both `critical` and `full` afterward.
+
+**Bug 2 — Healthy / Untracked legend colors hard to distinguish:**
+The sidebar legend shows Healthy as a near-black dot (`#3a3a3a` with `#666` border) and Untracked/N/A as a slightly darker near-black dot (`#2A2A2A` with `#555` border). On the dark `#1F2123` background these two dots are nearly identical to the naked eye. Investigate whether the visual difference is sufficient; if not, propose a clearer color treatment (e.g. a visible mid-grey for Untracked vs. the default background tone for Healthy, or a hatched/striped indicator for Untracked).
+
+**Feature — Procurement history: add Qty on Hand and Units Used columns:**
+In the Tab 1 procurement detail panel, add two new columns to the 5-most-recent-orders table:
+- **Qty on Hand at Order** — how much inventory was recorded in the system for that drug/site at the time the order was placed. This is not currently stored in `purchase_orders`; will need to either add a column to the seed script and backfill simulated snapshot values per order date, or derive it from the existing `inventory_snapshots` table as a proxy (simpler but less accurate).
+- **Units Used (since prior order)** — units consumed between this order date and the previous order date for the same drug/site. Derivable from `avg_daily_usage_7d × days_between_orders` if exact usage logs don't exist. Need to decide with Dawson whether to backfill real per-date usage into `purchase_orders` or calculate it at query time from the usage averages.
+
+The user story is: "This is how much we had — this is how much we used — this is how much we ordered." These three columns together give a complete demand-and-replenishment picture per order event.
+
 <!-- Add new days below this line in the same format -->
