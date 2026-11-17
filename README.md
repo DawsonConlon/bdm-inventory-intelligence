@@ -16,6 +16,40 @@ Built with Streamlit and SQLite. Designed for hospital pharmacy environments whe
 
 ---
 
+## Features
+
+### Critical Alerts
+
+![Critical Alerts](docs/screenshots/critical-alerts.webp)
+
+The primary view. Every drug-site pair at 7 days of supply or less is surfaced here, sorted by days remaining. Each row is color-coded: maroon for items that also carry an active Health Canada shortage alert, orange for critical items with no current shortage. The Shortage column shows the tier (Tier 1, 2, or 3) or None. Summary tiles at the top show total critical items, active shortage flags, sites affected, and provinces affected — all driven by the current geography filter.
+
+---
+
+### Full Inventory
+
+![Full Inventory](docs/screenshots/full-inventory.webp)
+
+A complete view of all 25 drug-site combinations across all alert states. Rows are color-coded by alert level: maroon (critical + shortage), orange (critical), amber (concern, 8–14 days), grey (untracked or negative quantity), and no fill for healthy stock (greater than 14 days). This tab lets a pharmacist confirm the full picture — not just what is urgent, but what is trending toward critical and what is comfortable.
+
+---
+
+### Geography Filters and Legends
+
+![Sidebar Legends](docs/screenshots/sidebar-legends.webp)
+
+The sidebar provides cascading geography filters — Region, Province, City, Site — that narrow both tabs simultaneously. Each level updates based on the selection above it, so the options always reflect what is actually in scope. Below the filters, two reference legends are always visible: the alert level legend explaining what each row color means operationally, and the Health Canada Shortage Tiers legend defining Tier 1 (Manageable), Tier 2 (Serious), and Tier 3 (Critical) with plain-language descriptions sourced from Health Canada classifications.
+
+---
+
+### Procurement History
+
+![Procurement History](docs/screenshots/procurement-history.webp)
+
+Selecting any drug-site pair from the Critical Alerts tab opens a procurement history panel. It shows the five most recent orders with order date, distributor, quantity on hand at the time of order, days since the previous order, units consumed between orders, quantity ordered, unit cost, days to delivery, and status. Three summary metrics at the top show average lead time (delivered orders only), average unit cost, and total orders over the past six months. Units consumed is a derived field calculated from consecutive order records rather than direct dispensing logs.
+
+---
+
 ## Running Locally
 
 **Requirements:** Python 3.10+
