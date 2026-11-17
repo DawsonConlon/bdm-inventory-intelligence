@@ -4,6 +4,8 @@ A web-based inventory decision-support tool that answers one question: **which d
 
 Built with Streamlit and SQLite. Designed for hospital pharmacy environments where supply disruptions carry direct patient-care risk.
 
+**Click live app below to run the software.**
+
 [Live App](https://bdm-inventory-intelligence-cz7r5peqw3kpppnxxb976j.streamlit.app/)
 
 ---
