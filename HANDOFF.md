@@ -307,4 +307,4 @@ On first run, `app.py` auto-seeds the database if `data/bdm.db` is missing. Use 
 - Do not use emojis in responses.
 - Keep responses concise and direct.
 - Always ask Dawson rather than making assumptions — use the grill-me skill before writing code or making design choices.
-- Always update `BUILD_LOG.md` at the end of a session and push to GitHub.
+- Always update `BUILD_LOG.md` at the end of a session.
